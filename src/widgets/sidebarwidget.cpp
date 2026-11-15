@@ -8,6 +8,7 @@
 #include "theme.h"
 #include "user.h"
 #include "icons.h"
+#include "version.h"
 
 #include <QAbstractButton>
 #include <QHBoxLayout>
@@ -36,6 +37,10 @@ QColor wordmarkInk() {
 }
 QColor wordmarkLeaf() {
     return Theme::isDark() ? QColor(0x5F, 0xB5, 0x80) : QColor(0x3E, 0x8E, 0x5E);
+}
+// The Beta tag in the leaf's green: lighter text on the dark sidebar, darker on the light one
+QColor betaText() {
+    return Theme::isDark() ? QColor(0x7F, 0xD1, 0xA0) : QColor(0x2A, 0x6F, 0x48);
 }
 
 QString initialsFor(const QString& name) {
@@ -226,6 +231,19 @@ SidebarWidget::SidebarWidget(QWidget* parent)
     wordmark->setAccessibleName(APP_NAME);
     updateWordmark();
     brandLayout->addWidget(wordmark, 0, Qt::AlignVCenter);
+    // Until version 1.0, so it goes by itself with the version in CMakeLists.txt
+    beta = new QLabel(tr("Beta"), brandRow);
+    beta->setObjectName("sidebarBeta");
+    beta->setToolTip(tr("Version %1, an early build").arg(APP_VERSION));
+    QFont betaFont = beta->font();
+    betaFont.setPixelSize(10);
+    betaFont.setWeight(QFont::DemiBold);
+    betaFont.setCapitalization(QFont::AllUppercase);
+    betaFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.5);
+    beta->setFont(betaFont);
+    styleBeta();
+    brandLayout->addSpacing(8);
+    brandLayout->addWidget(beta, 0, Qt::AlignBottom);   // Reaches just below the wordmark's baseline, like a tag beside text
     brandLayout->addStretch(1);
     root->addWidget(brandRow);
 
@@ -403,7 +421,19 @@ void SidebarWidget::setCollapsed(bool shouldCollapse, bool animate) {
 
 void SidebarWidget::showBrand() {
     wordmark->setVisible(!collapsed);
+    beta->setVisible(!collapsed && isBeta(APP_VERSION_MAJOR));
     brandLogo->setVisible(collapsed);
+}
+
+bool SidebarWidget::isBeta(int majorVersion) {
+    return majorVersion < 1;
+}
+
+void SidebarWidget::styleBeta() {
+    QColor tint = wordmarkLeaf();
+    tint.setAlpha(Theme::isDark() ? 41 : 36);
+    beta->setStyleSheet(QString("QLabel { color: %1; background: %2; border-radius: 8px; padding: 1px 7px; }")
+                            .arg(betaText().name(), tint.name(QColor::HexArgb)));
 }
 
 void SidebarWidget::updateWordmark() {
@@ -619,6 +649,7 @@ void SidebarWidget::changeEvent(QEvent* event) {
     if (event->type() == QEvent::PaletteChange && sectionsArea) {
         styleScrollBar();
         updateWordmark();
+        styleBeta();
     }
     QWidget::changeEvent(event);
 }

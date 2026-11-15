@@ -36,6 +36,8 @@ public:
     bool isCollapsed() const;
     void setCollapsed(bool collapsed, bool animate = true);
 
+    static bool isBeta(int majorVersion);            // Before 1.0, when the wordmark has a Beta tag
+
 signals:
     void pageRequested(SidebarWidget::Page page);
     void accountRequested(int accountId);            // ALL_ACCOUNTS_ID for all accounts
@@ -48,12 +50,13 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
-    void changeEvent(QEvent* event) override;        // The scroll bar and the wordmark follow the theme
+    void changeEvent(QEvent* event) override;        // The scroll bar, wordmark and Beta tag follow the theme
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void updateWordmark();                           // In the brand's colours, softened for the dark theme
     void showBrand();                                // The wordmark, or the logo when collapsed
+    void styleBeta();                                // In the leaf's green, for the theme
 
     struct Section {
         SidebarItem* header = nullptr;
@@ -91,6 +94,7 @@ private:
     SidebarItem* collapseItem = nullptr;
     QWidget* brandRow = nullptr;                     // The wordmark or logo, with the divider under it
     QLabel* wordmark = nullptr;                      // At the top; hidden in the collapsed rail
+    QLabel* beta = nullptr;                          // Beside the wordmark, before 1.0
     QLabel* brandLogo = nullptr;                     // Only in the collapsed rail, which has no room for the wordmark
     QList<SidebarItem*> labelledItems;               // Items whose label hides in the collapsed rail
     QVariantAnimation widthAnimation;

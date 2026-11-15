@@ -3492,6 +3492,14 @@ Umsätze behalten ihre Kategorien.</translation>
         <translation>%1-Logo</translation>
     </message>
     <message>
+        <source>Beta</source>
+        <translation>Beta</translation>
+    </message>
+    <message>
+        <source>Version %1, an early build</source>
+        <translation>Version %1, eine frühe Testversion</translation>
+    </message>
+    <message>
         <source>Dashboard</source>
         <translation>Übersicht</translation>
     </message>

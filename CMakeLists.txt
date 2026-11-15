@@ -117,7 +117,7 @@ set_source_files_properties(${APP_LOGO} PROPERTIES QT_RESOURCE_ALIAS liora-logo.
 list(APPEND ICON_FILES ${APP_LOGO})                       # :/liora-logo.svg
 configure_file(${APP_LOGO} ${CMAKE_CURRENT_BINARY_DIR}/generated/liora.svg COPYONLY)   # For the AppImage
 # The wordmark at the top of the sidebar (:/liora-wordmark.svg), recoloured for the theme. The variant
-# for small sizes, with lighter strokes and a larger leaf; the README shows the full-size one.
+# for small sizes, with lighter strokes and larger leaf; full-size variant is for README.md for e.g.
 set(APP_WORDMARK assets/liora-wordmark-small.svg)
 set_source_files_properties(${APP_WORDMARK} PROPERTIES QT_RESOURCE_ALIAS liora-wordmark.svg)
 list(APPEND ICON_FILES ${APP_WORDMARK})

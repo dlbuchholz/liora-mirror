@@ -13,6 +13,7 @@
 #include "category.h"
 #include "settings.h"
 #include "theme.h"
+#include "version.h"
 #include "tests/test_db_fixture.h"
 #include "widgets/sidebarwidget.h"
 
@@ -467,6 +468,73 @@ private slots:
         const int below = row->height() - row->layout()->contentsMargins().bottom() - wordmark->geometry().bottom() - 1;
         QVERIFY2(qAbs(above - below - row->layout()->contentsMargins().top()) <= 1,
                  qPrintable(QString("%1 %2").arg(above).arg(below)));
+    }
+
+    // A Beta tag until version 1.0
+    void isBetaBeforeVersionOne() {
+        QVERIFY(SidebarWidget::isBeta(0));
+        QVERIFY(!SidebarWidget::isBeta(1));
+        QVERIFY(!SidebarWidget::isBeta(2));
+    }
+
+    // Beside the wordmark while this version is a beta, with the full version on hover; gone in
+    // the collapsed rail along with the wordmark
+    void betaTagBesideTheWordmark() {
+        SidebarWidget sidebar;
+        sidebar.setUserId(1);
+        sidebar.setCollapsed(false, false);
+        auto* beta = sidebar.findChild<QLabel*>("sidebarBeta");
+        QVERIFY(beta);
+        QCOMPARE(beta->text(), QString("Beta"));
+        QVERIFY(beta->toolTip().contains(APP_VERSION));
+        QCOMPARE(!beta->isHidden(), SidebarWidget::isBeta(APP_VERSION_MAJOR));
+
+        sidebar.setCollapsed(true, false);
+        QVERIFY(beta->isHidden());
+        sidebar.setCollapsed(false, false);
+        QCOMPARE(!beta->isHidden(), SidebarWidget::isBeta(APP_VERSION_MAJOR));
+    }
+
+    // Reaches a little below the wordmark's baseline, like a tag beside text, rather than floating
+    // above it
+    void betaTagReachesTheBaseline() {
+        if (!SidebarWidget::isBeta(APP_VERSION_MAJOR)) QSKIP("No Beta tag from version 1.0");
+        Theme::applyTheme(Theme::Type::Light);
+        SidebarWidget sidebar;
+        sidebar.setUserId(1);
+        sidebar.setAttribute(Qt::WA_DontShowOnScreen);
+        sidebar.setCollapsed(false, false);
+        sidebar.show();
+        QCoreApplication::processEvents();
+        auto* wordmark = sidebar.findChild<QLabel*>("sidebarWordmark");
+        auto* beta = sidebar.findChild<QLabel*>("sidebarBeta");
+        const QImage image = sidebar.grab().toImage();
+        const qreal scale = image.devicePixelRatio();
+        const QColor background = Theme::colors().sidebarBackground;
+        // The lowest row, in the sidebar's pixels, where something is drawn in the widget's columns
+        const auto lowest = [&](QWidget* widget) {
+            const QRect area(widget->mapTo(&sidebar, QPoint(0, 0)), widget->size());
+            for (int y = int((area.bottom() + 1) * scale) - 1; y >= int(area.top() * scale); --y)
+                for (int x = int(area.left() * scale); x < int((area.right() + 1) * scale); ++x)
+                    if (image.pixelColor(x, y) != background) return y / scale;
+            return -1.0;
+        };
+        const qreal baseline = lowest(wordmark), tagBottom = lowest(beta);
+        QVERIFY2(tagBottom >= baseline && tagBottom <= baseline + 3,
+                 qPrintable(QString("baseline %1, tag %2").arg(baseline).arg(tagBottom)));
+    }
+
+    // In the leaf's green: lighter on the dark sidebar, darker on the light one
+    void betaTagFollowsTheTheme() {
+        SidebarWidget sidebar;
+        sidebar.setUserId(1);
+        auto* beta = sidebar.findChild<QLabel*>("sidebarBeta");
+        Theme::applyTheme(Theme::Type::Dark);
+        QCoreApplication::processEvents();
+        QVERIFY2(beta->styleSheet().contains("#7fd1a0"), qPrintable(beta->styleSheet()));
+        Theme::applyTheme(Theme::Type::Light);
+        QCoreApplication::processEvents();
+        QVERIFY2(beta->styleSheet().contains("#2a6f48"), qPrintable(beta->styleSheet()));
     }
 
     // Swapping the wordmark for the logo doesn't move the items below
