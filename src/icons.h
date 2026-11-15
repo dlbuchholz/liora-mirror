@@ -25,6 +25,10 @@ void setThemedIcon(QAbstractButton* button, const QString& name, int size = 14);
 QPixmap logo(int size, qreal devicePixelRatio);
 QIcon appIcon();                                     // Window and taskbar icon
 
+// The Liora wordmark, height pixels high, cropped to what it draws (not its empty margins). Its
+// strokes, the letters, take the ink colour; its fills, the leaf, the leaf colour.
+QPixmap wordmark(int height, const QColor& ink, const QColor& leaf, qreal devicePixelRatio);
+
 } // namespace Icons
 
 #endif // ICONS_H

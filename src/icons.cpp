@@ -7,6 +7,8 @@
 #include <QGuiApplication>
 #include <QHash>
 #include <QPainter>
+#include <QtMath>
+#include <QRegularExpression>
 #include <QSvgRenderer>
 
 namespace Icons {
@@ -94,6 +96,63 @@ QPixmap logo(int size, qreal devicePixelRatio) {
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
     renderer.render(&painter, QRectF(0, 0, size, size));
+    return pixmap;
+}
+
+namespace {
+
+// The part of the wordmark's view box it draws in: found by drawing it large and looking at the
+// pixels, so a new wordmark needs no new numbers. The same for every colour, so found once.
+QRectF drawnBounds(QSvgRenderer& renderer) {
+    static QRectF bounds;
+    if (bounds.isNull()) {
+        constexpr qreal scale = 4;
+        const QRectF box = renderer.viewBoxF();
+        QImage image((box.size() * scale).toSize(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            renderer.render(&painter, QRectF(QPointF(0, 0), image.size()));
+        }
+        int left = image.width(), right = -1, top = image.height(), bottom = -1;
+        for (int y = 0; y < image.height(); ++y) {
+            const QRgb* line = reinterpret_cast<const QRgb*>(image.constScanLine(y));
+            for (int x = 0; x < image.width(); ++x) {
+                if (qAlpha(line[x]) == 0) continue;
+                left = qMin(left, x);
+                right = qMax(right, x);
+                top = qMin(top, y);
+                bottom = qMax(bottom, y);
+            }
+        }
+        bounds = right < 0 ? box                                                   // Draws nothing: all of it
+                           : QRectF(box.x() + left / scale, box.y() + top / scale,
+                                    (right - left + 1) / scale, (bottom - top + 1) / scale);
+    }
+    return bounds;
+}
+
+} // namespace
+
+QPixmap wordmark(int height, const QColor& ink, const QColor& leaf, qreal devicePixelRatio) {
+    QFile file(":/liora-wordmark.svg");
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    static const QRegularExpression stroke(R"(stroke="#[0-9A-Fa-f]{3,8}")");
+    static const QRegularExpression fill(R"(fill="#[0-9A-Fa-f]{3,8}")");     // Not fill="none"
+    const QString svg = QString::fromUtf8(file.readAll())
+                            .replace(stroke, QString(R"(stroke="%1")").arg(ink.name()))
+                            .replace(fill, QString(R"(fill="%1")").arg(leaf.name()));
+    QSvgRenderer renderer(svg.toUtf8());
+    const QRectF drawn = drawnBounds(renderer);
+    const int width = qCeil(height * drawn.width() / drawn.height());
+
+    QPixmap pixmap(QSize(width, height) * devicePixelRatio);
+    pixmap.setDevicePixelRatio(devicePixelRatio);
+    pixmap.fill(Qt::transparent);
+    renderer.setViewBox(drawn);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    renderer.render(&painter, QRectF(0, 0, width, height));
     return pixmap;
 }
 
