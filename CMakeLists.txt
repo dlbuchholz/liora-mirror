@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(Liora VERSION 0.2.0 LANGUAGES C CXX)          # C for thirdparty/miniz
+project(Liora VERSION 0.2.1 LANGUAGES C CXX)          # C for thirdparty/miniz
 # The program's earlier name: on its first start the program takes over that name's data and
 # settings (src/namemigration.cpp), and the installers remove that name's installation. Empty
 # when there was none.
