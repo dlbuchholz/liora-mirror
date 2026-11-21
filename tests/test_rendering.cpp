@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <QPainterPath>
 #include <QPainter>
+#include <QtMath>
 #include <QListView>
 #include <QDir>
 #include <QAbstractButton>
@@ -383,7 +384,26 @@ private slots:
             };
             QCOMPARE(at(card->width() / 2, card->height() / 2), Theme::cardBackground(dark).rgb());
             QCOMPARE(at(1, 1), Theme::pageBackground(dark).rgb());      // Outside the round corner
-            QCOMPARE(at(card->width() / 2, 0), Theme::hairline(dark).rgb());
+            // The hairline along the top. At a fractional scale such as 125% the card starts between
+            // two screen rows, so Qt spreads the 1 px line over them, blended with the page or the
+            // card: then the row with the most of it has to be mostly hairline. Exact at 100% and 200%.
+            const QColor hairline = Theme::hairline(dark);
+            const auto distance = [](const QColor& a, const QColor& b) {
+                return qAbs(a.red() - b.red()) + qAbs(a.green() - b.green()) + qAbs(a.blue() - b.blue());
+            };
+            const QPointF top = QPointF(card->mapTo(&page, QPoint(card->width() / 2, 0))) * dpr;
+            QColor strongest;
+            for (int y = qFloor(top.y()); y < qCeil(top.y() + dpr); ++y) {
+                const QColor colour = image.pixelColor(int(top.x()), y);
+                if (!strongest.isValid() || distance(colour, hairline) < distance(strongest, hairline)) strongest = colour;
+            }
+            if (dpr == qRound(dpr)) {
+                QCOMPARE(strongest.rgb(), hairline.rgb());
+            } else {
+                const int around = qMin(distance(hairline, Theme::pageBackground(dark)), distance(hairline, Theme::cardBackground(dark)));
+                QVERIFY2(distance(strongest, hairline) * 2 < around,
+                         qPrintable(QString("%1 at scale %2").arg(strongest.name()).arg(dpr)));
+            }
 
             // A list or scroll area as a card doesn't paint its square background over the corners
             // A link: no box, the link colour, in this theme's shade
