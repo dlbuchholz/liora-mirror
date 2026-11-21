@@ -112,7 +112,7 @@ file(GLOB ICON_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/*.svg")
 # The app's logo: the window and taskbar icon, the .exe icon, the Linux icon, and in the app itself.
 # Always :/liora-logo.svg and generated/liora.svg, whichever file it is, so changing it is only here.
-set(APP_LOGO assets/liora-logo-dark.svg)
+set(APP_LOGO assets/liora-logo-peak.svg)                 # The "li" drafts (liora-logo-*.svg) wait their turn
 set_source_files_properties(${APP_LOGO} PROPERTIES QT_RESOURCE_ALIAS liora-logo.svg)
 list(APPEND ICON_FILES ${APP_LOGO})                       # :/liora-logo.svg
 configure_file(${APP_LOGO} ${CMAKE_CURRENT_BINARY_DIR}/generated/liora.svg COPYONLY)   # For the AppImage
