@@ -8,6 +8,9 @@
 ; Installs for the current user only (no admin rights) into %LOCALAPPDATA%\Programs\<name>, with a
 ; Start menu entry and an optional desktop shortcut. Uninstalling removes the program, and the
 ; user's data (database and settings) only when they tick that option.
+;
+; An installation under the earlier name (PREVIOUS_NAME) is removed once this one is
+; installed, keeping its data, which the program takes over on its first start.
 
 Unicode true
 !include "MUI2.nsh"
@@ -118,9 +121,66 @@ Section /o "Desktop shortcut" SecDesktop
     CreateShortcut "$DESKTOP\${DISPLAY_NAME}.lnk" "$INSTDIR\${NAME}.exe"
 SectionEnd
 
+; The installation under the earlier name (PREVIOUS_NAME), found through its entry in the list of
+; programs, is removed once this one is installed: an option, ticked, shown only when there is
+; one. Its data stays: the earlier uninstallers delete data only when ticked, which a silent
+; uninstall never does, and the program takes the data over on its first start.
+!if "${PREVIOUS_NAME}" != ""
+!define PREVIOUS_FOLDER_NAME "${PREVIOUS_NAME}"
+!define PREVIOUS_UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PREVIOUS_FOLDER_NAME}"
+Var PreviousFolder                                   ; Empty when there's none to remove
+
+Section "Remove ${PREVIOUS_NAME}" SecRemovePrevious
+    StrCmp $PreviousFolder "" done
+    ; Its program can't be deleted while it runs: a running .exe can't be opened for writing
+    retry:
+    ClearErrors
+    FileOpen $0 "$PreviousFolder\${PREVIOUS_NAME}.exe" a
+    ${If} ${Errors}
+        MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "${PREVIOUS_NAME} is still open. Close it and choose Retry to remove it, or Cancel to keep it for now (you can remove it later in the list of programs)." /SD IDCANCEL IDRETRY retry
+        Goto done
+    ${EndIf}
+    FileClose $0
+    ; Its own uninstaller, silently and in place (_?=), so this waits for it. In place, it can't
+    ; delete itself and its folder, so that's done here.
+    DetailPrint "Removing ${PREVIOUS_NAME} from $PreviousFolder"
+    ExecWait '"$PreviousFolder\Uninstall.exe" /S _?=$PreviousFolder'
+    Delete "$PreviousFolder\Uninstall.exe"
+    RMDir "$PreviousFolder"                          ; Only when empty
+    IfFileExists "$PreviousFolder\*.*" 0 done
+        MessageBox MB_ICONINFORMATION "${PREVIOUS_NAME} couldn't be removed completely. What's left is in $PreviousFolder." /SD IDOK
+    done:
+SectionEnd
+
+; Sets $PreviousFolder when there's an installation to remove: its entry names a folder with the
+; earlier name (as its installer required) that holds its uninstaller. Otherwise the option is
+; neither shown nor done.
+Function FindPrevious
+    ReadRegStr $PreviousFolder HKCU "${PREVIOUS_UNINSTALL_KEY}" "InstallLocation"
+    StrLen $1 "\${PREVIOUS_FOLDER_NAME}"
+    IntOp $1 0 - $1
+    StrCpy $0 $PreviousFolder "" $1
+    ${If} $0 != "\${PREVIOUS_FOLDER_NAME}"
+    ${OrIfNot} ${FileExists} "$PreviousFolder\Uninstall.exe"
+        StrCpy $PreviousFolder ""
+        SectionSetFlags ${SecRemovePrevious} 0
+        SectionSetText ${SecRemovePrevious} ""      ; Hidden
+    ${EndIf}
+FunctionEnd
+!endif
+
+Function .onInit
+!if "${PREVIOUS_NAME}" != ""
+    Call FindPrevious
+!endif
+FunctionEnd
+
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${SecProgram} "The program, with a Start menu entry."
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "A shortcut to ${NAME} on the desktop."
+!if "${PREVIOUS_NAME}" != ""
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecRemovePrevious} "Removes ${PREVIOUS_NAME}, ${NAME}'s earlier name. Your data stays: ${NAME} takes it over."
+!endif
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; Removes the program, its shortcuts and its Apps entry
