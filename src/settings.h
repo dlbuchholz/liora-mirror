@@ -105,6 +105,10 @@ public:
     // The tab of the Budget vs. actual report's chart: all together (0, default), each budget (1), grid (2)
     int getReportsBudgetView() const;
     void setReportsBudgetView(int view);
+    bool isReportsBalanceByAccount() const;          // Balance over time: accounts stacked rather than the total
+    void setReportsBalanceByAccount(bool byAccount);
+    int reportsBalanceTrend() const;                 // Balance over time: 0 none, 1 a straight line, 2 a moving average
+    void setReportsBalanceTrend(int trend);
 
     // Every budget in the sidebar, instead of as many as fit without scrolling (off by default)
     bool isSidebarShowingAllBudgets() const;

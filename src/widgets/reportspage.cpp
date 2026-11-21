@@ -27,6 +27,7 @@
 #include <QPainterPath>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSet>
 #include <QStackedWidget>
 #include <QToolButton>
 #include <QToolTip>
@@ -404,22 +405,128 @@ public:
 
     void setReport(const BalanceReport& newReport) {
         report = newReport;
-        low = high = report.days.isEmpty() ? 0 : report.days.first().balanceCents;
-        for (const BalancePoint& point : std::as_const(report.days)) {
-            low = qMin(low, point.balanceCents);
-            high = qMax(high, point.balanceCents);
+        rescale();
+    }
+
+    // Each account's balance and its colour, shown stacked while stacked is on
+    void setAccounts(const QList<AccountBalance>& newAccounts, const QList<QColor>& colors) {
+        accounts = newAccounts;
+        accountColors = colors;
+        rescale();
+    }
+    void setStacked(bool isStacked) {
+        stacked = isStacked;
+        rescale();
+    }
+    void setHiddenAccounts(const QSet<int>& ids) {
+        hiddenAccounts = ids;
+        rescale();
+    }
+    bool isStacked() const { return stacked && !accounts.isEmpty(); }
+    QSet<int> hiddenAccountIds() const { return hiddenAccounts; }
+
+    // Where the balance is heading, over the line: not stacked only
+    enum class Trend { None, Line, Average };
+    void setTrend(Trend newTrend) {
+        trend = newTrend;
+        rescale();
+    }
+    Cents trendPerMonthCents() const { return trendPerMonth; }    // Line only
+
+private:
+    // The visible accounts' bands or the trend, and the scale: from the lowest to the highest value shown
+    void rescale() {
+        bands.clear();
+        bandAccounts.clear();
+        trendValues.clear();
+        trendPerMonth = 0;
+        if (isStacked()) {
+            QList<QList<Cents>> balances;
+            for (int i = 0; i < accounts.size(); ++i) {
+                if (hiddenAccounts.contains(accounts[i].accountId)) continue;
+                QList<Cents> days;
+                days.reserve(report.days.size());
+                for (const BalancePoint& point : std::as_const(accounts[i].balance.days)) days.append(point.balanceCents);
+                balances.append(days);
+                bandAccounts.append(i);
+            }
+            bands = stackBalances(balances);
+            low = high = 0;                              // Stacked from zero, so zero is always in view
+            for (const StackBand& band : std::as_const(bands)) {
+                for (const Cents value : band.lower) low = qMin(low, value);
+                for (const Cents value : band.upper) high = qMax(high, value);
+            }
+        } else {
+            low = high = report.days.isEmpty() ? 0 : report.days.first().balanceCents;
+            for (const BalancePoint& point : std::as_const(report.days)) {
+                low = qMin(low, point.balanceCents);
+                high = qMax(high, point.balanceCents);
+            }
+            if (trend == Trend::Line && !report.days.isEmpty()) {
+                const StraightTrend line = straightTrend(report.days);
+                trendValues = line.values;
+                trendPerMonth = line.perMonthCents();
+            } else if (trend == Trend::Average) {
+                trendValues = movingAverage(report.days, movingAverageDays(report.range));
+            }
+            for (const double value : std::as_const(trendValues)) {     // A straight line can run past the balance
+                low = qMin(low, Cents(std::floor(value)));
+                high = qMax(high, Cents(std::ceil(value)));
+            }
         }
+        setProperty("stacked", isStacked());             // For tests
+        setProperty("trendPoints", int(trendValues.size()));
+        setProperty("scaleLow", qint64(low));
+        setProperty("shownAccounts", int(bandAccounts.size()));
         hovered = -1;
+        drawn = QPixmap();
         update();
     }
 
 protected:
+    // The chart is drawn once into an image, again only when its size, report or theme changes;
+    // moving the mouse only paints the hover line and dot over it
     void paintEvent(QPaintEvent*) override {
-        const Theme::Colors colors = Theme::colors();
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
         if (report.days.isEmpty()) return;
+        const qreal dpr = devicePixelRatioF();
+        if (drawn.isNull() || drawn.size() != size() * dpr) {
+            drawn = QPixmap(size() * dpr);
+            drawn.setDevicePixelRatio(dpr);
+            drawn.fill(Qt::transparent);
+            QPainter chart(&drawn);
+            drawChart(chart);
+        }
+        QPainter painter(this);
+        painter.drawPixmap(0, 0, drawn);
+        if (hovered >= 0) {
+            const Theme::Colors colors = Theme::colors();
+            const QRect plot = plotRect();
+            painter.setRenderHint(QPainter::Antialiasing);
+            const BalancePoint& point = report.days[hovered];
+            const QPointF dot(xFor(point.date) + dayWidth() / 2, yFor(point.balanceCents));
+            painter.setPen(QPen(colors.textMuted, 1, Qt::DashLine));
+            painter.drawLine(QPointF(dot.x(), plot.top()), QPointF(dot.x(), plot.bottom()));
+            if (!isStacked()) {                          // Stacked, the line alone: the tooltip has each account
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(colors.accent);
+                painter.drawEllipse(dot, 4, 4);
+            }
+        }
+    }
 
+    void resizeEvent(QResizeEvent* event) override {
+        drawn = QPixmap();
+        QWidget::resizeEvent(event);
+    }
+
+    void changeEvent(QEvent* event) override {
+        if (event->type() == QEvent::PaletteChange || event->type() == QEvent::FontChange) drawn = QPixmap();
+        QWidget::changeEvent(event);
+    }
+
+    void drawChart(QPainter& painter) {
+        const Theme::Colors colors = Theme::colors();
+        painter.setRenderHint(QPainter::Antialiasing);
         const QRect plot = plotRect();
         QFont labelFont = font();
         labelFont.setPointSizeF(font().pointSizeF() * 0.9);
@@ -429,8 +536,11 @@ protected:
         if (!compact) {
             QList<Cents> marks = {highest(), (highest() + lowest()) / 2, lowest()};
             if (lowest() < 0 && highest() > 0) marks = {highest(), 0, lowest()};
+            QList<double> taken;                         // Where labels are; one too close to another is left out
             for (const Cents mark : std::as_const(marks)) {
                 const double y = yFor(mark);
+                if (std::any_of(taken.cbegin(), taken.cend(), [y](double other) { return qAbs(other - y) < 18; })) continue;
+                taken.append(y);
                 painter.setPen(QPen(mark == 0 ? colors.textMuted : colors.sidebarBorder, 1));
                 painter.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
                 painter.setPen(colors.textSecondary);
@@ -452,15 +562,41 @@ protected:
             }
         }
 
-        // The line, with a light fill below
+        if (isStacked()) {
+            drawBands(painter);
+            return;
+        }
+
+        // The line, with a light fill below: through every day, or, with more days than pixels,
+        // through each pixel column's lowest, highest and last balance
         QPainterPath line;
-        for (int i = 0; i < report.days.size(); ++i) {
-            const QPointF point(xFor(report.days[i].date) + dayWidth() / 2, yFor(report.days[i].balanceCents));
-            if (i == 0) {
-                line.moveTo(point);
-            } else {
-                line.lineTo(point);
+        const QDate firstShown = report.days.first().date;
+        const double shownWidth = (xFor(report.days.last().date) + dayWidth()) - xFor(firstShown);
+        const int columns = qMax(1, int(shownWidth));
+        if (report.days.size() <= columns) {
+            for (int i = 0; i < report.days.size(); ++i) {
+                const QPointF point(xFor(report.days[i].date) + dayWidth() / 2, yFor(report.days[i].balanceCents));
+                if (i == 0) {
+                    line.moveTo(point);
+                } else {
+                    line.lineTo(point);
+                }
             }
+            drawnPointCount = int(report.days.size());
+            setProperty("drawnPoints", drawnPointCount);
+        } else {
+            const QList<BalanceColumn> squeezed = balanceColumns(report.days, columns);
+            const double left = xFor(firstShown);
+            const double step = shownWidth / squeezed.size();
+            line.moveTo(left, yFor(report.days.first().balanceCents));
+            for (int i = 0; i < squeezed.size(); ++i) {
+                const double x = left + (i + 0.5) * step;
+                line.lineTo(x, yFor(squeezed[i].highCents));
+                line.lineTo(x, yFor(squeezed[i].lowCents));
+                line.lineTo(x, yFor(squeezed[i].lastCents));
+            }
+            drawnPointCount = int(squeezed.size()) * 3 + 1;
+            setProperty("drawnPoints", drawnPointCount);   // For tests: a long range isn't drawn day by day
         }
         QPainterPath area = line;
         area.lineTo(line.currentPosition().x(), plot.bottom());
@@ -473,14 +609,60 @@ protected:
         painter.setBrush(Qt::NoBrush);
         painter.drawPath(line);
 
-        if (hovered >= 0) {
-            const BalancePoint& point = report.days[hovered];
-            const QPointF dot(xFor(point.date) + dayWidth() / 2, yFor(point.balanceCents));
-            painter.setPen(QPen(colors.textMuted, 1, Qt::DashLine));
-            painter.drawLine(QPointF(dot.x(), plot.top()), QPointF(dot.x(), plot.bottom()));
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(colors.accent);
-            painter.drawEllipse(dot, 4, 4);
+        // The trend over it: a dashed straight line, or the average as a line of its own colour
+        if (!trendValues.isEmpty()) {
+            QList<qsizetype> sampled;
+            QList<double> xs;
+            sampleDays(sampled, xs);
+            QPainterPath path;
+            path.moveTo(xs.first(), yForValue(trendValues[sampled.first()]));
+            for (qsizetype i = 1; i < sampled.size(); ++i) path.lineTo(xs[i], yForValue(trendValues[sampled[i]]));
+            if (trend == Trend::Line) {
+                painter.setPen(QPen(colors.textSecondary, 1.5, Qt::DashLine, Qt::FlatCap));
+            } else {
+                painter.setPen(QPen(colors.warning, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            }
+            painter.drawPath(path);
+        }
+    }
+
+    // Each visible account as a band in its colour, stacked
+    void drawBands(QPainter& painter) {
+        QList<qsizetype> sampled;
+        QList<double> xs;
+        sampleDays(sampled, xs);
+        setProperty("drawnPoints", int(sampled.size()));
+        for (int b = 0; b < bands.size(); ++b) {
+            const StackBand& band = bands[b];
+            QPainterPath path;
+            path.moveTo(xs.first(), yFor(band.upper[sampled.first()]));
+            for (qsizetype i = 1; i < sampled.size(); ++i) path.lineTo(xs[i], yFor(band.upper[sampled[i]]));
+            for (qsizetype i = sampled.size() - 1; i >= 0; --i) path.lineTo(xs[i], yFor(band.lower[sampled[i]]));
+            path.closeSubpath();
+            QColor fill = accountColors.value(bandAccounts[b], Theme::colors().accent);
+            fill.setAlpha(Theme::isDark() ? 200 : 215);
+            painter.fillPath(path, fill);
+        }
+    }
+
+    // The days drawn and where: every day, or with more days than pixels, the last day of each
+    // pixel column
+    void sampleDays(QList<qsizetype>& sampled, QList<double>& xs) const {
+        const qsizetype days = report.days.size();
+        const QDate firstShown = report.days.first().date;
+        const double shownWidth = (xFor(report.days.last().date) + dayWidth()) - xFor(firstShown);
+        const int columns = qMax(1, int(shownWidth));
+        if (days <= columns) {
+            for (qsizetype i = 0; i < days; ++i) {
+                sampled.append(i);
+                xs.append(xFor(report.days[i].date) + dayWidth() / 2);
+            }
+        } else {
+            const double step = shownWidth / columns;
+            for (int column = 0; column < columns; ++column) {
+                sampled.append(qMin<qsizetype>(days - 1, (qsizetype(column) + 1) * days / columns - 1));
+                xs.append(xFor(firstShown) + (column + 0.5) * step);
+            }
         }
     }
 
@@ -496,11 +678,9 @@ protected:
             update();
         }
         if (index >= 0) {
-            const BalancePoint& point = report.days[index];
-            QToolTip::showText(event->globalPosition().toPoint(),
-                               QString("%1\n%2").arg(AppLocale::date(point.date, AppLocale::DateFormat::DayMonthYear),
-                                                     Settings::instance().formatCurrency(point.balanceCents)),
-                               this);
+            const QString text = hoverText(index);
+            setProperty("hoverText", text);              // For tests
+            QToolTip::showText(event->globalPosition().toPoint(), text, this);
         } else {
             QToolTip::hideText();
         }
@@ -512,6 +692,30 @@ protected:
         QWidget::leaveEvent(event);
     }
 
+public:
+    // The day's balance; stacked, each visible account's too, then the total
+    QString hoverText(int index) const {
+        const Settings& settings = Settings::instance();
+        const BalancePoint& point = report.days[index];
+        QStringList lines = {AppLocale::date(point.date, AppLocale::DateFormat::DayMonthYear)};
+        if (!isStacked()) {
+            lines.append(settings.formatCurrency(point.balanceCents));
+            if (index < trendValues.size()) {
+                const QString value = settings.formatCurrency(qRound64(trendValues[index]));
+                lines.append(trend == Trend::Line ? ReportsPage::tr("Trend: %1").arg(value) : ReportsPage::tr("Average: %1").arg(value));
+            }
+            return lines.join('\n');
+        }
+        Cents total = 0;
+        for (const int i : bandAccounts) {
+            const Cents balance = accounts[i].balance.days.value(index).balanceCents;
+            total += balance;
+            lines.append(QString("%1: %2").arg(accounts[i].name, settings.formatCurrency(balance)));
+        }
+        lines.append(ReportsPage::tr("Together: %1").arg(settings.formatCurrency(total)));
+        return lines.join('\n');
+    }
+
 private:
     // Amounts on the left, period names below
     QRect plotRect() const { return compact ? rect().adjusted(1, 2, -1, -2) : rect().adjusted(84, 10, -4, -26); }
@@ -519,10 +723,11 @@ private:
     double xFor(const QDate& date) const { return plotRect().left() + report.range.first.daysTo(date) * dayWidth(); }
     Cents highest() const { return high; }
     Cents lowest() const { return low; }
-    double yFor(Cents cents) const {
+    double yFor(Cents cents) const { return yForValue(double(cents)); }
+    double yForValue(double cents) const {
         const QRect plot = plotRect();
         if (high == low) return plot.center().y();
-        return plot.bottom() - double(cents - low) / double(high - low) * plot.height();
+        return plot.bottom() - (cents - double(low)) / double(high - low) * plot.height();
     }
 
     bool compact = false;
@@ -530,6 +735,17 @@ private:
     Cents low = 0;
     Cents high = 0;
     int hovered = -1;
+    QPixmap drawn;                                   // The chart as last drawn, without the hover
+    QList<AccountBalance> accounts;                  // For stacking; empty: the total only
+    QList<QColor> accountColors;                     // As accounts
+    QSet<int> hiddenAccounts;                        // Their ids
+    bool stacked = false;
+    QList<StackBand> bands;                          // The visible accounts, stacked
+    QList<int> bandAccounts;                         // Which account each band is, in accounts
+    Trend trend = Trend::None;
+    QList<double> trendValues;                       // Each day's, while a trend is shown
+    Cents trendPerMonth = 0;
+    int drawnPointCount = 0;
 };
 
 // One category's spending as a bar per week or month, with its average as a dashed line.
@@ -1799,7 +2015,140 @@ QWidget* ReportsPage::balanceDetail(QWidget* parent) {
     layout->setSpacing(0);
     auto* chart = new BalanceChart(false, widget);
     chart->setReport(balance);
+
+    // A track of buttons, one of them checked
+    const auto segmented = [widget](const QString& name, const QList<QPair<QString, QString>>& buttons, int checked,
+                                    QButtonGroup*& group) {
+        auto* frame = new QFrame(widget);
+        frame->setObjectName(name);
+        frame->setProperty("segmented", true);
+        frame->setFixedHeight(Theme::controlHeight);
+        auto* frameLayout = new QHBoxLayout(frame);
+        frameLayout->setContentsMargins(2, 2, 2, 2);
+        frameLayout->setSpacing(2);
+        group = new QButtonGroup(frame);
+        for (int i = 0; i < buttons.size(); ++i) {
+            auto* button = new QToolButton(frame);
+            button->setObjectName(buttons[i].first);
+            button->setText(buttons[i].second);
+            button->setCheckable(true);
+            button->setChecked(i == checked);
+            button->setCursor(Qt::PointingHandCursor);
+            button->setFixedHeight(Theme::controlHeight - 6);
+            group->addButton(button, i);
+            frameLayout->addWidget(button);
+        }
+        return frame;
+    };
+    auto* controls = new QHBoxLayout();
+    controls->setSpacing(0);
+
+    // All accounts together, or each account stacked: for all accounts, when there's more than one
+    const QList<AccountBalance> accounts = shownAccountId == ALL_ACCOUNTS
+                                               ? Reports::balanceByAccount(userId, shownRange, today()) : QList<AccountBalance>();
+    QWidget* legend = nullptr;
+    QButtonGroup* viewGroup = nullptr;
+    if (accounts.size() >= 2) {
+        static const QStringList palette = {"blue", "teal", "purple", "amber", "coral", "pink",
+                                            "green", "sky", "indigo", "lime", "brown", "slate"};
+        QList<QColor> colors;                        // In the accounts' order, so a colour stays with its account
+        for (int i = 0; i < accounts.size(); ++i) colors.append(CategoryColors::swatch(palette[i % palette.size()]).solid);
+        chart->setAccounts(accounts, colors);
+        const bool byAccount = Settings::instance().isReportsBalanceByAccount();
+        chart->setStacked(byAccount);
+
+        controls->addWidget(segmented("balanceViews", {{"balanceViewTotal", tr("Total")}, {"balanceViewByAccount", tr("By account")}},
+                                      byAccount ? 1 : 0, viewGroup));
+        controls->addSpacing(16);
+
+        // Under the chart: each account's colour; clicking one hides or shows it
+        legend = new QWidget(widget);
+        legend->setObjectName("balanceLegend");
+        auto* legendLayout = new QHBoxLayout(legend);
+        legendLayout->setContentsMargins(84, 6, 0, 0);       // Under the plot, past the amounts
+        legendLayout->setSpacing(4);
+        for (int i = 0; i < accounts.size(); ++i) {
+            auto* item = new QToolButton(legend);
+            item->setObjectName("balanceLegendItem");
+            item->setText(accounts[i].name);
+            item->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            item->setProperty("button", true);       // No box, a light background on hover
+            item->setProperty("ghost", true);
+            item->setFixedHeight(Theme::controlHeight - 4);
+            item->setCheckable(true);
+            item->setChecked(true);
+            item->setCursor(Qt::PointingHandCursor);
+            item->setToolTip(tr("Show or hide %1").arg(accounts[i].name));
+            const QColor color = colors[i];
+            const auto paintSwatch = [item, color](bool shown) {
+                QPixmap swatch(QSize(12, 12) * item->devicePixelRatioF());
+                swatch.setDevicePixelRatio(item->devicePixelRatioF());
+                swatch.fill(Qt::transparent);
+                QPainter painter(&swatch);
+                painter.setRenderHint(QPainter::Antialiasing);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(shown ? color : Theme::colors().track);
+                painter.drawRoundedRect(QRectF(0, 0, 12, 12), 3, 3);
+                item->setIcon(QIcon(swatch));
+            };
+            paintSwatch(true);
+            const int id = accounts[i].accountId;
+            connect(item, &QToolButton::toggled, chart, [chart, id, paintSwatch](bool shown) {
+                QSet<int> hidden = chart->hiddenAccountIds();
+                if (shown) {
+                    hidden.remove(id);
+                } else {
+                    hidden.insert(id);
+                }
+                chart->setHiddenAccounts(hidden);
+                paintSwatch(shown);
+            });
+            legendLayout->addWidget(item);
+        }
+        legendLayout->addStretch();
+        legend->setVisible(byAccount);
+    }
+
+    // Where the balance is heading: a straight line, or the average of the days before. For the
+    // total only: over stacked accounts it would be hard to read.
+    QButtonGroup* trendGroup = nullptr;
+    const int averageDays = movingAverageDays(shownRange);
+    QFrame* trends = segmented("balanceTrends", {{"balanceTrendNone", tr("No trend")}, {"balanceTrendLine", tr("Trend")},
+                                                 {"balanceTrendAverage", tr("Average")}},
+                               Settings::instance().reportsBalanceTrend(), trendGroup);
+    trendGroup->button(1)->setToolTip(tr("The straight line closest to the balance"));
+    trendGroup->button(2)->setToolTip(averageDays > 30 ? tr("Each day, the average of the 3 months up to it")
+                                                       : tr("Each day, the average of the month up to it"));
+    controls->addWidget(trends);
+    controls->addStretch();
+    auto* trendRate = new QLabel(widget);
+    trendRate->setObjectName("balanceTrendRate");
+    trendRate->setForegroundRole(QPalette::PlaceholderText);
+    controls->addWidget(trendRate);
+    layout->addLayout(controls);
+    layout->addSpacing(10);
+    const auto showTrend = [chart, trends, trendRate]() {
+        const int trend = Settings::instance().reportsBalanceTrend();
+        chart->setTrend(BalanceChart::Trend(trend));
+        trends->setVisible(!chart->isStacked());
+        trendRate->setVisible(!chart->isStacked() && trend == 1);
+        trendRate->setText(tr("%1 a month on average").arg(Settings::instance().formatCurrency(chart->trendPerMonthCents(), true)));
+    };
+    showTrend();
+    connect(trendGroup, &QButtonGroup::idClicked, chart, [showTrend](int id) {
+        Settings::instance().setReportsBalanceTrend(id);
+        showTrend();
+    });
+    if (viewGroup) {
+        connect(viewGroup, &QButtonGroup::idClicked, chart, [chart, legend, showTrend](int id) {
+            Settings::instance().setReportsBalanceByAccount(id == 1);
+            chart->setStacked(id == 1);
+            legend->setVisible(id == 1);
+            showTrend();
+        });
+    }
     layout->addWidget(chart);
+    if (legend) layout->addWidget(legend);
     layout->addSpacing(16);
 
     using Column = ReportRow::Column;

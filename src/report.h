@@ -100,6 +100,46 @@ struct BalanceReport {
     Cents balanceOn(const QDate& date) const;
 };
 
+// The days of a balance squeezed into columns, for drawing a long range one point per pixel:
+// each column's lowest, highest and last balance, so short dips and peaks still show
+struct BalanceColumn {
+    Cents lowCents = 0;
+    Cents highCents = 0;
+    Cents lastCents = 0;
+};
+QList<BalanceColumn> balanceColumns(const QList<BalancePoint>& days, int columns);
+
+// Where the balance is heading: the straight line closest to every day's balance (least squares),
+// its value on each day, and how much it rises a month on average (a month = 365.25 / 12 days)
+struct StraightTrend {
+    QList<double> values;
+    double perDay = 0;
+    Cents perMonthCents() const;
+};
+StraightTrend straightTrend(const QList<BalancePoint>& days);
+
+// The average of each day's balance and those of the days before it, up to window days in all;
+// the first days average over the days there are
+QList<double> movingAverage(const QList<BalancePoint>& days, int window);
+// The window for a range: a month for up to six months, three months for longer
+int movingAverageDays(const ReportRange& range);
+
+// One account's balance day by day, for showing accounts stacked
+struct AccountBalance {
+    int accountId = 0;
+    QString name;
+    BalanceReport balance;
+};
+
+// Accounts stacked for a chart, day by day: each account's band from its lower to its upper edge.
+// Accounts above zero stack upwards from zero, accounts below it downwards, so a negative balance
+// (a credit card) doesn't eat into the others and the top edge is what all the positive ones hold.
+struct StackBand {
+    QList<Cents> lower;
+    QList<Cents> upper;
+};
+QList<StackBand> stackBalances(const QList<QList<Cents>>& balances);
+
 // One category's spending in a week or month of a report
 struct PeriodSpent {
     ReportRange period;
@@ -210,6 +250,8 @@ CategoryTrend categoryTrend(int userId, int accountId, int categoryId, const Rep
 // The balance day by day, with everything that moves it: transfers and balance adjustments too.
 // accountId < 0 means all accounts together.
 BalanceReport balanceOverTime(int userId, int accountId, const ReportRange& range, const QDate& today);
+// The same for each of the user's accounts, in their usual order
+QList<AccountBalance> balanceByAccount(int userId, const ReportRange& range, const QDate& today);
 
 // Income and spending per week or month, without transfers and balance adjustments.
 // accountId < 0 means all accounts.

@@ -180,6 +180,43 @@ private slots:
         QVERIFY(!Reports::keptPercent(0, -4268));
     }
 
+    void aBalanceOnADayIsFoundByHalving() {
+        BalanceReport report;
+        report.startCents = 500;
+        for (int day = 1; day <= 9; day += 2) report.days.append({QDate(2026, 3, day), Cents(day * 100)});   // 1, 3, 5, 7, 9
+        QCOMPARE(report.balanceOn(QDate(2026, 2, 28)), Cents(500));              // Before them: the start
+        QCOMPARE(report.balanceOn(QDate(2026, 3, 1)), Cents(100));               // On a day
+        QCOMPARE(report.balanceOn(QDate(2026, 3, 4)), Cents(300));               // Between: the day before
+        QCOMPARE(report.balanceOn(QDate(2026, 3, 9)), Cents(900));
+        QCOMPARE(report.balanceOn(QDate(2026, 4, 1)), Cents(900));               // After them: the last
+        QCOMPARE(BalanceReport().balanceOn(QDate(2026, 3, 1)), Cents(0));
+    }
+
+    void aLongBalanceSqueezesIntoColumnsKeepingItsPeaks() {
+        QList<BalancePoint> days;
+        const QList<Cents> balances = {10, 50, 20, 30, -40, 60, 70, 15};
+        for (int i = 0; i < balances.size(); ++i) days.append({QDate(2026, 1, 1).addDays(i), balances[i]});
+
+        const QList<BalanceColumn> four = balanceColumns(days, 4);                // Two days a column
+        QCOMPARE(four.size(), 4);
+        const QList<QList<Cents>> expected = {{10, 50, 50}, {20, 30, 30}, {-40, 60, 60}, {15, 70, 15}};   // Low, high, last
+        for (int i = 0; i < 4; ++i) {
+            QCOMPARE(four[i].lowCents, expected[i][0]);
+            QCOMPARE(four[i].highCents, expected[i][1]);
+            QCOMPARE(four[i].lastCents, expected[i][2]);
+        }
+        const QList<BalanceColumn> three = balanceColumns(days, 3);               // Uneven: 3, 3 and 2 days
+        QCOMPARE(three[0].lowCents, Cents(10));
+        QCOMPARE(three[0].highCents, Cents(50));
+        QCOMPARE(three[0].lastCents, Cents(20));
+        QCOMPARE(three[1].lowCents, Cents(-40));
+        QCOMPARE(three[2].lastCents, Cents(15));
+        QCOMPARE(balanceColumns(days, 20).size(), 8);                              // Never more columns than days
+        QCOMPARE(balanceColumns(days, 20)[1].highCents, Cents(50));
+        QVERIFY(balanceColumns(days, 0).isEmpty());
+        QVERIFY(balanceColumns({}, 4).isEmpty());
+    }
+
     void balanceDayByDayUpToToday() {
         add(giro, 100000, QDate(2026, 7, 1), categoryId(InitialBalanceCategory), "income");   // Before the range
         add(giro, 20000, QDate(2026, 10, 3), groceries, "expense");
@@ -208,6 +245,75 @@ private slots:
         const BalanceReport september = Reports::balanceOverTime(1, -1, {QDate(2026, 9, 1), QDate(2026, 9, 30)}, today);
         QCOMPARE(september.days.size(), 30);
         QCOMPARE(september.changeCents(), Cents(0));
+    }
+
+    void aStraightTrendThroughTheBalance() {
+        const auto daysOf = [](const QList<Cents>& balances) {
+            QList<BalancePoint> days;
+            for (int i = 0; i < balances.size(); ++i) days.append({QDate(2026, 1, 1).addDays(i), balances[i]});
+            return days;
+        };
+        // On a line already: the line itself
+        const StraightTrend rising = straightTrend(daysOf({100, 300, 500, 700}));
+        QCOMPARE(rising.perDay, 200.0);
+        QCOMPARE(rising.values, (QList<double>{100, 300, 500, 700}));
+        QCOMPARE(rising.perMonthCents(), Cents(6088));                 // 200 × 30.4375
+        // Scattered: closest to all of them
+        const StraightTrend scattered = straightTrend(daysOf({0, 0, 0, 10}));
+        QCOMPARE(scattered.perDay, 3.0);
+        QCOMPARE(scattered.values, (QList<double>{-2, 1, 4, 7}));
+        const StraightTrend falling = straightTrend(daysOf({900, 600, 300}));
+        QCOMPARE(falling.perDay, -300.0);
+        QCOMPARE(falling.perMonthCents(), Cents(-9131));                // -300 × 30.4375, rounded
+        // One day: flat
+        const StraightTrend one = straightTrend(daysOf({500}));
+        QCOMPARE(one.perDay, 0.0);
+        QCOMPARE(one.values, (QList<double>{500}));
+        QVERIFY(straightTrend({}).values.isEmpty());
+    }
+
+    void aMovingAverageOfTheDaysBefore() {
+        QList<BalancePoint> days;
+        for (const Cents balance : {10, 20, 60, 10, 0}) days.append({QDate(2026, 1, 1).addDays(days.size()), balance});
+        QCOMPARE(movingAverage(days, 3), (QList<double>{10, 15, 30, 30, 70.0 / 3}));
+        QCOMPARE(movingAverage(days, 1), (QList<double>{10, 20, 60, 10, 0}));
+        QVERIFY(movingAverage(days, 0).isEmpty());
+        QCOMPARE(movingAverageDays(ReportRange::forPreset(Preset::SixMonths, today)), 30);
+        QCOMPARE(movingAverageDays(ReportRange::forPreset(Preset::Year, today)), 91);
+    }
+
+    void eachAccountsBalanceDayByDay() {
+        add(giro, 100000, QDate(2026, 7, 1), categoryId(InitialBalanceCategory), "income");
+        add(giro, 30000, QDate(2026, 10, 10), categoryId(TransferCategory), "expense");
+        add(savings, 30000, QDate(2026, 10, 10), categoryId(TransferCategory), "income");
+        const ReportRange month = ReportRange::forPreset(Preset::Month, today);
+        const QList<AccountBalance> accounts = Reports::balanceByAccount(1, month, today);
+        QCOMPARE(accounts.size(), 2);
+        QCOMPARE(accounts[0].accountId, giro);
+        QCOMPARE(accounts[0].name, QString("Girokonto"));
+        QCOMPARE(accounts[0].balance.startCents, Cents(100000));
+        QCOMPARE(accounts[0].balance.endCents(), Cents(70000));
+        QCOMPARE(accounts[1].accountId, savings);
+        QCOMPARE(accounts[1].balance.days.size(), 29);
+        QCOMPARE(accounts[1].balance.balanceOn(QDate(2026, 10, 9)), Cents(0));
+        QCOMPARE(accounts[1].balance.endCents(), Cents(30000));
+    }
+
+    void accountsStackUpFromZeroAndNegativeOnesDown() {
+        // Three accounts over three days; the second goes below zero on the last day
+        const QList<QList<Cents>> balances = {{100, 200, 300}, {50, 0, -40}, {-20, 10, 60}};
+        const QList<StackBand> bands = stackBalances(balances);
+        QCOMPARE(bands.size(), 3);
+        QCOMPARE(bands[0].lower, (QList<Cents>{0, 0, 0}));
+        QCOMPARE(bands[0].upper, (QList<Cents>{100, 200, 300}));
+        QCOMPARE(bands[1].lower, (QList<Cents>{100, 200, -40}));   // A zero sits on top, a debt hangs below
+        QCOMPARE(bands[1].upper, (QList<Cents>{150, 200, 0}));
+        QCOMPARE(bands[2].lower, (QList<Cents>{-20, 200, 300}));   // Below the debt only when below zero itself
+        QCOMPARE(bands[2].upper, (QList<Cents>{0, 210, 360}));
+        QVERIFY(stackBalances({}).isEmpty());
+        const QList<StackBand> debts = stackBalances({{-10}, {-30}});   // The second debt hangs below the first
+        QCOMPARE(debts[1].upper, (QList<Cents>{-10}));
+        QCOMPARE(debts[1].lower, (QList<Cents>{-40}));
     }
 
     void oneCategoryMonthByMonth() {

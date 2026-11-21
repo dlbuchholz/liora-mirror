@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QSqlQuery>
 #include <QAbstractButton>
 #include <QComboBox>
 #include <QDateEdit>
@@ -14,6 +15,8 @@
 #include "account.h"
 #include "budget.h"
 #include "transaction.h"
+#include "report.h"
+#include "db/databasemanager.h"
 #include "settings.h"
 #include "theme.h"
 #include "tests/test_db_fixture.h"
@@ -309,6 +312,200 @@ private slots:
         page.reload();                                   // Gone: back to all of them
         QCOMPARE(page.accountId(), ReportsPage::ALL_ACCOUNTS);
         QCOMPARE(combo->count(), 2);
+    }
+
+    void aLongBalanceIsDrawnPixelByPixelNotDayByDay() {
+        const int giro = AccountDAO::createAccount(1, "Giro", "Checking", 0);
+        const QDate today = QDate::currentDate();
+        for (int back = 0; back < 3000; back += 7) {
+            TransactionDAO().addTransaction(Transaction(-1, giro, "Shop", 1000 + back, today.addDays(-back), "", 0, "expense"));
+        }
+        ReportsPage page;
+        page.resize(1100, 700);
+        page.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&page));
+        page.askCustomRange = [today](QDate& from, QDate& to) { from = today.addDays(-3000); to = today; return true; };
+        page.setUserId(1);
+        chooseDays(page);
+        page.openReport(ReportsPage::Report::Balance);
+        auto* chart = page.findChild<QWidget*>("balanceChart");
+        chart->grab();                                           // Drawn, on screen or not
+        const int points = chart->property("drawnPoints").toInt();
+        QVERIFY2(points > 0 && points <= 3 * chart->width() + 1, qPrintable(QString::number(points)));
+        QVERIFY(points < 3001);                                  // Fewer than the days
+
+        // A short range: every day
+        auto* preview = page.findChild<QWidget*>("balancePreview");     // The card's chart, kept across ranges
+        preview->grab();
+        const int previewPoints = preview->property("drawnPoints").toInt();
+        page.askCustomRange = [today](QDate& from, QDate& to) { from = today.addDays(-30); to = today; return true; };
+        chooseDays(page);
+        chart = page.findChild<QWidget*>("balanceChart");
+        chart->grab();                                           // Drawn, on screen or not
+        QCOMPARE(chart->property("drawnPoints").toInt(), 31);
+        preview->grab();                                         // Drawn again for the new range, not kept from the old
+        QVERIFY(preview->property("drawnPoints").toInt() != previewPoints);
+        QCOMPARE(preview->property("drawnPoints").toInt(), 31);
+    }
+
+    void balanceByAccountIsStackedAndRemembered() {
+        Settings::instance().setReportsBalanceByAccount(false);
+        const int giro = AccountDAO::createAccount(1, "Giro", "Checking", 0);
+        const int savings = AccountDAO::createAccount(1, "Savings", "Savings", 0);
+        const QDate today = QDate::currentDate();
+        TransactionDAO().addTransaction(Transaction(-1, giro, "Pay", 50000, today.addDays(-40), "", 0, "income"));
+        TransactionDAO().addTransaction(Transaction(-1, savings, "Interest", 20000, today.addDays(-40), "", 0, "income"));
+
+        ReportsPage page;
+        page.resize(1100, 700);
+        page.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&page));
+        page.setUserId(1);
+        chip(page, Preset::Month)->click();
+        page.openReport(ReportsPage::Report::Balance);
+        auto* chart = page.findChild<QWidget*>("balanceChart");
+        auto* total = page.findChild<QAbstractButton*>("balanceViewTotal");
+        auto* byAccount = page.findChild<QAbstractButton*>("balanceViewByAccount");
+        auto* legend = page.findChild<QWidget*>("balanceLegend");
+        QVERIFY(total && byAccount && legend);
+        QVERIFY(total->isChecked());
+        QVERIFY(!chart->property("stacked").toBool());
+        QVERIFY(!legend->isVisible());
+
+        // Hovering shows the total alone
+        QTest::mouseMove(chart, QPoint(chart->width() - 10, chart->height() / 2));
+        QVERIFY(!chart->property("hoverText").toString().contains("Giro"));
+        QVERIFY(chart->property("hoverText").toString().contains(Settings::instance().formatCurrency(70000)));
+
+        byAccount->click();
+        QVERIFY(chart->property("stacked").toBool());
+        QCOMPARE(chart->property("shownAccounts").toInt(), 2);
+        QVERIFY(legend->isVisible());
+        QVERIFY(Settings::instance().isReportsBalanceByAccount());
+        QTest::mouseMove(chart, QPoint(chart->width() - 12, chart->height() / 2));
+        const QString both = chart->property("hoverText").toString();
+        QVERIFY2(both.contains("Giro: " + Settings::instance().formatCurrency(50000)), qPrintable(both));
+        QVERIFY(both.contains("Savings: " + Settings::instance().formatCurrency(20000)));
+        QVERIFY(both.contains(Settings::instance().formatCurrency(70000)));
+
+        // Clicking an account in the legend hides it, and its balance leaves the total
+        const QList<QToolButton*> items = legend->findChildren<QToolButton*>("balanceLegendItem");
+        QCOMPARE(items.size(), 2);
+        QCOMPARE(items[1]->text(), QString("Savings"));
+        items[1]->click();
+        QCOMPARE(chart->property("shownAccounts").toInt(), 1);
+        QTest::mouseMove(chart, QPoint(chart->width() - 10, chart->height() / 2));
+        const QString giroOnly = chart->property("hoverText").toString();
+        QVERIFY2(!giroOnly.contains("Savings"), qPrintable(giroOnly));
+        QVERIFY(giroOnly.endsWith(Settings::instance().formatCurrency(50000)));
+        items[1]->click();
+        QCOMPARE(chart->property("shownAccounts").toInt(), 2);
+
+        // Opened again, it's still by account
+        total->click();
+        QVERIFY(!chart->property("stacked").toBool());
+        QVERIFY(!legend->isVisible());
+        QVERIFY(!Settings::instance().isReportsBalanceByAccount());
+        byAccount->click();
+        page.openReport(ReportsPage::Report::Balance);
+        QVERIFY(page.findChild<QWidget*>("balanceChart")->property("stacked").toBool());
+        QVERIFY(page.findChild<QAbstractButton*>("balanceViewByAccount")->isChecked());
+        QVERIFY(!page.findChild<QAbstractButton*>("balanceViewTotal")->isChecked());
+        Settings::instance().setReportsBalanceByAccount(false);
+    }
+
+    void balanceShowsATrendLineOrAnAverage() {
+        Settings::instance().setReportsBalanceTrend(0);
+        Settings::instance().setReportsBalanceByAccount(false);
+        const int giro = AccountDAO::createAccount(1, "Giro", "Checking", 0);
+        const int savings = AccountDAO::createAccount(1, "Savings", "Savings", 0);
+        const QDate today = QDate::currentDate();
+        for (int back = 0; back <= 20; ++back) {                     // $10 more every day: a straight line
+            TransactionDAO().addTransaction(Transaction(-1, giro, "Pay", 1000, today.addDays(-back), "", 0, "income"));
+        }
+        ReportsPage page;
+        page.resize(1100, 700);
+        page.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&page));
+        page.askCustomRange = [today](QDate& from, QDate& to) { from = today.addDays(-20); to = today; return true; };
+        page.setUserId(1);
+        chooseDays(page);
+        page.openReport(ReportsPage::Report::Balance);
+        auto* chart = page.findChild<QWidget*>("balanceChart");
+        auto* trends = page.findChild<QWidget*>("balanceTrends");
+        auto* rate = page.findChild<QLabel*>("balanceTrendRate");
+        QVERIFY(page.findChild<QAbstractButton*>("balanceTrendNone")->isChecked());
+        QCOMPARE(chart->property("trendPoints").toInt(), 0);
+        QVERIFY(!rate->isVisible());
+        QTest::mouseMove(chart, QPoint(chart->width() - 10, chart->height() / 2));
+        QCOMPARE(chart->property("hoverText").toString().count('\n'), 1);   // The day and its balance
+
+        page.findChild<QAbstractButton*>("balanceTrendLine")->click();
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 1);
+        QCOMPARE(chart->property("trendPoints").toInt(), 21);
+        QVERIFY(rate->isVisible());
+        QCOMPARE(rate->text(), Settings::instance().formatCurrency(30438, true) + " a month on average");   // $10 × 30.44 days
+        QTest::mouseMove(chart, QPoint(chart->width() - 12, chart->height() / 2));
+        QVERIFY(chart->property("hoverText").toString().endsWith("Trend: " + Settings::instance().formatCurrency(21000)));
+
+        page.findChild<QAbstractButton*>("balanceTrendAverage")->click();
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 2);
+        QCOMPARE(chart->property("trendPoints").toInt(), 21);
+        QVERIFY(!rate->isVisible());
+        QTest::mouseMove(chart, QPoint(chart->width() - 10, chart->height() / 2));
+        QVERIFY(chart->property("hoverText").toString().endsWith("Average: " + Settings::instance().formatCurrency(11000)));
+
+        // By account has no trend; back to the total, it's there again
+        page.findChild<QAbstractButton*>("balanceViewByAccount")->click();
+        QCOMPARE(chart->property("trendPoints").toInt(), 0);
+        QVERIFY(!trends->isVisible());
+        page.findChild<QAbstractButton*>("balanceViewTotal")->click();
+        QCOMPARE(chart->property("trendPoints").toInt(), 21);
+        QVERIFY(trends->isVisible());
+
+        // Opened again, the average is still chosen
+        page.openReport(ReportsPage::Report::Balance);
+        QVERIFY(page.findChild<QAbstractButton*>("balanceTrendAverage")->isChecked());
+        QCOMPARE(page.findChild<QWidget*>("balanceChart")->property("trendPoints").toInt(), 21);
+        page.findChild<QAbstractButton*>("balanceTrendNone")->click();
+        QCOMPARE(page.findChild<QWidget*>("balanceChart")->property("trendPoints").toInt(), 0);
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 0);
+        Settings::instance().setReportsBalanceTrend(3);                // Not one of them: none
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 0);
+        Settings::instance().setReportsBalanceTrend(-1);
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 0);
+        Settings::instance().setReportsBalanceTrend(2);
+        QCOMPARE(Settings::instance().reportsBalanceTrend(), 2);
+        Settings::instance().setReportsBalanceTrend(0);
+        Q_UNUSED(savings);
+    }
+
+    void aTrendLineBelowTheBalanceStaysInView() {
+        Settings::instance().setReportsBalanceTrend(0);
+        const int giro = AccountDAO::createAccount(1, "Giro", "Checking", 0);
+        const QDate today = QDate::currentDate();
+        TransactionDAO().addTransaction(Transaction(-1, giro, "Pay", 10000, today, "", 0, "income"));   // Flat at $0, then up
+        ReportsPage page;
+        page.askCustomRange = [today](QDate& from, QDate& to) { from = today.addDays(-3); to = today; return true; };
+        page.setUserId(1);
+        chooseDays(page);
+        page.openReport(ReportsPage::Report::Balance);
+        auto* chart = page.findChild<QWidget*>("balanceChart");
+        QCOMPARE(chart->property("scaleLow").toLongLong(), 0LL);
+        page.findChild<QAbstractButton*>("balanceTrendLine")->click();
+        QCOMPARE(chart->property("scaleLow").toLongLong(), -2000LL);    // The line starts below the balance: 0, 0, 0, 100
+        Settings::instance().setReportsBalanceTrend(0);
+    }
+
+    void balanceOfOneAccountHasNoByAccountSwitch() {
+        AccountDAO::createAccount(1, "Giro", "Checking", 0);
+        ReportsPage page;
+        page.setUserId(1);
+        chip(page, Preset::Month)->click();
+        page.openReport(ReportsPage::Report::Balance);
+        QVERIFY(page.findChild<QWidget*>("balanceChart"));
+        QVERIFY(!page.findChild<QWidget*>("balanceViewByAccount"));
+        QVERIFY(!page.findChild<QWidget*>("balanceLegend"));
     }
 
     void spendingByCategoryOnTheCardAndInDetail() {

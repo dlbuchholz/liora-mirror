@@ -451,6 +451,23 @@ void Settings::setReportsBudgetView(int view) {
     settings.setValue("ui/reportsBudgetView", view);
 }
 
+bool Settings::isReportsBalanceByAccount() const {
+    return settings.value("ui/reportsBalanceByAccount", false).toBool();
+}
+
+void Settings::setReportsBalanceByAccount(bool byAccount) {
+    settings.setValue("ui/reportsBalanceByAccount", byAccount);
+}
+
+int Settings::reportsBalanceTrend() const {
+    const int trend = settings.value("ui/reportsBalanceTrend", 0).toInt();
+    return trend >= 0 && trend <= 2 ? trend : 0;
+}
+
+void Settings::setReportsBalanceTrend(int trend) {
+    settings.setValue("ui/reportsBalanceTrend", trend);
+}
+
 bool Settings::isSidebarShowingAllBudgets() const {
     return settings.value("appearance/sidebarAllBudgets", false).toBool();
 }

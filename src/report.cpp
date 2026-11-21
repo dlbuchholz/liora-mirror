@@ -1,10 +1,13 @@
 #include "report.h"
+#include "account.h"
 #include "applocale.h"
 #include "budget.h"
 #include "category.h"
 #include "db/databasemanager.h"
 
 #include <QCoreApplication>
+#include <algorithm>
+#include <iterator>
 #include <QHash>
 #include <QLocale>
 #include <QSet>
@@ -181,12 +184,97 @@ int BudgetReport::keptCount() const {
 }
 
 Cents BalanceReport::balanceOn(const QDate& date) const {
-    Cents balance = startCents;
-    for (const BalancePoint& point : days) {
-        if (point.date > date) break;
-        balance = point.balanceCents;
+    // The days are in order: the last one not after the date, found by halving
+    const auto after = std::upper_bound(days.cbegin(), days.cend(), date,
+                                        [](const QDate& day, const BalancePoint& point) { return day < point.date; });
+    return after == days.cbegin() ? startCents : std::prev(after)->balanceCents;
+}
+
+QList<StackBand> stackBalances(const QList<QList<Cents>>& balances) {
+    QList<StackBand> bands(balances.size());
+    const qsizetype days = balances.isEmpty() ? 0 : balances.first().size();
+    for (StackBand& band : bands) {
+        band.lower.resize(days);
+        band.upper.resize(days);
     }
-    return balance;
+    for (qsizetype day = 0; day < days; ++day) {
+        Cents above = 0;                                 // Where the next positive balance starts
+        Cents below = 0;                                 // ...and the next negative one
+        for (qsizetype account = 0; account < balances.size(); ++account) {
+            const Cents balance = day < balances[account].size() ? balances[account][day] : 0;
+            StackBand& band = bands[account];
+            if (balance >= 0) {
+                band.lower[day] = above;
+                above += balance;
+                band.upper[day] = above;
+            } else {
+                band.upper[day] = below;
+                below += balance;
+                band.lower[day] = below;
+            }
+        }
+    }
+    return bands;
+}
+
+Cents StraightTrend::perMonthCents() const {
+    return qRound64(perDay * 365.25 / 12.0);
+}
+
+StraightTrend straightTrend(const QList<BalancePoint>& days) {
+    StraightTrend trend;
+    const qsizetype n = days.size();
+    if (n == 0) return trend;
+    // The days follow each other, so a day's number is its place in the list
+    const double meanX = (n - 1) / 2.0;
+    double meanY = 0;
+    for (const BalancePoint& point : days) meanY += double(point.balanceCents);
+    meanY /= double(n);
+    double spread = 0;                                   // Sum of (x - mean x)²
+    double together = 0;                                 // Sum of (x - mean x)(y - mean y)
+    for (qsizetype i = 0; i < n; ++i) {
+        const double dx = double(i) - meanX;
+        spread += dx * dx;
+        together += dx * (double(days[i].balanceCents) - meanY);
+    }
+    trend.perDay = spread > 0 ? together / spread : 0;
+    trend.values.reserve(n);
+    for (qsizetype i = 0; i < n; ++i) trend.values.append(meanY + trend.perDay * (double(i) - meanX));
+    return trend;
+}
+
+QList<double> movingAverage(const QList<BalancePoint>& days, int window) {
+    QList<double> averages;
+    if (window < 1) return averages;
+    averages.reserve(days.size());
+    double sum = 0;
+    for (qsizetype i = 0; i < days.size(); ++i) {
+        sum += double(days[i].balanceCents);
+        if (i >= window) sum -= double(days[i - window].balanceCents);
+        averages.append(sum / double(qMin<qsizetype>(i + 1, window)));
+    }
+    return averages;
+}
+
+int movingAverageDays(const ReportRange& range) {
+    return range.months() > 6 ? 91 : 30;
+}
+
+QList<BalanceColumn> balanceColumns(const QList<BalancePoint>& days, int columns) {
+    QList<BalanceColumn> result;
+    if (days.isEmpty() || columns <= 0) return result;
+    columns = qMin(columns, int(days.size()));
+    result.resize(columns);
+    for (int i = 0; i < days.size(); ++i) {
+        const int column = int(qint64(i) * columns / days.size());
+        BalanceColumn& into = result[column];
+        const Cents balance = days[i].balanceCents;
+        const bool first = column != int(qint64(i - 1) * columns / days.size()) || i == 0;
+        into.lowCents = first ? balance : qMin(into.lowCents, balance);
+        into.highCents = first ? balance : qMax(into.highCents, balance);
+        into.lastCents = balance;
+    }
+    return result;
 }
 
 Cents MoneyFlow::totalCents() const {
@@ -459,6 +547,14 @@ BalanceReport balanceOverTime(int userId, int accountId, const ReportRange& rang
         report.days.append({day, balance});
     }
     return report;
+}
+
+QList<AccountBalance> balanceByAccount(int userId, const ReportRange& range, const QDate& today) {
+    QList<AccountBalance> accounts;
+    for (const Account& account : AccountDAO().getAllAccountsForUser(userId, today)) {
+        accounts.append({account.getAccountId(), account.getName(), balanceOverTime(userId, account.getAccountId(), range, today)});
+    }
+    return accounts;
 }
 
 SpendingReport spendingByCategory(int userId, int accountId, const ReportRange& range, const QDate& today) {
