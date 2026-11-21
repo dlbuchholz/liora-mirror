@@ -46,6 +46,8 @@ endif()
 # Only files that include version.h are rebuilt when the version changes.
 configure_file(${SRC_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h @ONLY)
 configure_file(${SRC_DIR}/appname.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/appname.h @ONLY)   # APP_NAME etc., from the top of this file
+# The same names for the Windows installers (installer/*.nsi), which CI builds with -DNAMES=<this>
+configure_file(installer/names.nsh.in ${CMAKE_CURRENT_BINARY_DIR}/generated/names.nsh @ONLY)
 
 # Compiler warnings for Liora's own code (not Qt's headers). LIORA_WARNINGS_AS_ERRORS turns them
 # into errors, for CI or before a release.

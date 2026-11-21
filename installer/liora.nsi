@@ -1,42 +1,49 @@
-; Windows installer for Liora (NSIS 3). Built by CI from the packaged folder:
+; Windows installer for Liora (NSIS 3). Built by CI from the packaged folder and the build folder:
 ;
-;   makensis -DVERSION=0.1.0 -DSOURCE=<package folder> -DICON=<liora.ico> -DOUTFILE=<setup.exe> liora.nsi
+;   makensis -DVERSION=0.1.0 -DSOURCE=<package folder> -DICON=<build>/generated/liora.ico
+;            -DNAMES=<build>/generated/names.nsh -DOUTFILE=<setup.exe> liora.nsi
 ;
-; Installs for the current user only (no admin rights) into %LOCALAPPDATA%\Programs\Liora, with a
+; The names (program, folder, settings) come from CMakeLists.txt through names.nsh.
+;
+; Installs for the current user only (no admin rights) into %LOCALAPPDATA%\Programs\<name>, with a
 ; Start menu entry and an optional desktop shortcut. Uninstalling removes the program, and the
 ; user's data (database and settings) only when they tick that option.
 
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "LogicLib.nsh"
 
-!ifndef VERSION | SOURCE | ICON | OUTFILE
-    !error "Pass VERSION, SOURCE, ICON and OUTFILE with -D (see the top of this file)"
+!ifndef VERSION | SOURCE | ICON | NAMES | OUTFILE
+    !error "Pass VERSION, SOURCE, ICON, NAMES and OUTFILE with -D (see the top of this file)"
 !endif
+!include "${NAMES}"
 
-!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Liora"
+!define DISPLAY_NAME "${NAME}"
+!define FOLDER_NAME "${NAME}"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${NAME}"
 
-Name "Liora"
+Name "${DISPLAY_NAME}"
 OutFile "${OUTFILE}"
 RequestExecutionLevel user
-InstallDir "$LOCALAPPDATA\Programs\Liora"
+InstallDir "$LOCALAPPDATA\Programs\${FOLDER_NAME}"
 InstallDirRegKey HKCU "${UNINSTALL_KEY}" "InstallLocation"
-BrandingText "Liora ${VERSION}"
+BrandingText "${NAME} ${VERSION}"
 SetCompressor /SOLID lzma
 
 VIProductVersion "${VERSION}.0"
-VIAddVersionKey "ProductName" "Liora"
+VIAddVersionKey "ProductName" "${DISPLAY_NAME}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileVersion" "${VERSION}"
-VIAddVersionKey "FileDescription" "Liora installer"
-VIAddVersionKey "LegalCopyright" "The Liora contributors"
+VIAddVersionKey "FileDescription" "${NAME} installer"
+VIAddVersionKey "LegalCopyright" "The ${NAME} contributors"
 
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
 !define MUI_ABORTWARNING
-!define MUI_DIRECTORYPAGE_TEXT_TOP "Liora will be installed for your user account. The folder must be named Liora, so uninstalling can remove it safely."
-!define MUI_FINISHPAGE_RUN "$INSTDIR\Liora.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "Start Liora"
+!define MUI_DIRECTORYPAGE_TEXT_TOP "${NAME} will be installed for your user account. The folder must be named ${FOLDER_NAME}, so uninstalling can remove it safely."
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${NAME}.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Start ${NAME}"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${SOURCE}/LICENSE.txt"
@@ -51,38 +58,53 @@ VIAddVersionKey "LegalCopyright" "The Liora contributors"
 
 !insertmacro MUI_LANGUAGE "English"
 
-; Installing and uninstalling delete the whole folder, so it must be Liora's own, never the
-; Desktop or Documents: its name must be Liora. Checked on the directory page, and again before
-; deleting, since a silent install (/S /D=...) skips that page.
-!macro CheckLioraFolder
-    StrCpy $0 "$INSTDIR" "" -6
-    StrCmp $0 "\Liora" +3
-        MessageBox MB_ICONSTOP "The folder must be named Liora: $INSTDIR" /SD IDOK
+; Installing and uninstalling delete the whole folder, so it must be the program's own, never the
+; Desktop or Documents: its name must be ${FOLDER_NAME}. Checked on the directory page, and again
+; before deleting, since a silent install (/S /D=...) skips that page.
+; $0 is "1" when $INSTDIR ends in \${FOLDER_NAME}. Measured, not counted by hand, so a new name
+; needs no new number.
+!macro IsOwnFolder
+    StrLen $1 "\${FOLDER_NAME}"
+    IntOp $1 0 - $1
+    StrCpy $0 "$INSTDIR" "" $1
+    ${If} $0 == "\${FOLDER_NAME}"
+        StrCpy $0 "1"
+    ${Else}
+        StrCpy $0 "0"
+    ${EndIf}
+!macroend
+
+!macro CheckOwnFolder
+    !insertmacro IsOwnFolder
+    ${If} $0 != "1"
+        MessageBox MB_ICONSTOP "The folder must be named ${FOLDER_NAME}: $INSTDIR" /SD IDOK
         Abort
+    ${EndIf}
 !macroend
 
 Function .onVerifyInstDir
-    StrCpy $0 "$INSTDIR" "" -6
-    StrCmp $0 "\Liora" +2
+    !insertmacro IsOwnFolder
+    ${If} $0 != "1"
         Abort
+    ${EndIf}
 FunctionEnd
 
-Section "Liora" SecLiora
+Section "${NAME}" SecProgram
     SectionIn RO
-    !insertmacro CheckLioraFolder
+    !insertmacro CheckOwnFolder
     ; Remove the previous version's files first, so no outdated DLL stays behind
     RMDir /r "$INSTDIR"
     SetOutPath "$INSTDIR"
     File /r "${SOURCE}/*.*"
     WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-    CreateShortcut "$SMPROGRAMS\Liora.lnk" "$INSTDIR\Liora.exe"
+    CreateShortcut "$SMPROGRAMS\${DISPLAY_NAME}.lnk" "$INSTDIR\${NAME}.exe"
 
     ; Entry under Settings → Apps
-    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Liora"
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${DISPLAY_NAME}"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
-    WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "The Liora contributors"
-    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\Liora.exe"
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "The ${NAME} contributors"
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\${NAME}.exe"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
     WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
@@ -93,34 +115,34 @@ Section "Liora" SecLiora
 SectionEnd
 
 Section /o "Desktop shortcut" SecDesktop
-    CreateShortcut "$DESKTOP\Liora.lnk" "$INSTDIR\Liora.exe"
+    CreateShortcut "$DESKTOP\${DISPLAY_NAME}.lnk" "$INSTDIR\${NAME}.exe"
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecLiora} "The program, with a Start menu entry."
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "A shortcut to Liora on the desktop."
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecProgram} "The program, with a Start menu entry."
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "A shortcut to ${NAME} on the desktop."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; Removes the program, its shortcuts and its Apps entry
-Section "un.Liora" SecUnLiora
+Section "un.${NAME}" SecUnProgram
     SectionIn RO
-    !insertmacro CheckLioraFolder
-    Delete "$SMPROGRAMS\Liora.lnk"
-    Delete "$DESKTOP\Liora.lnk"
+    !insertmacro CheckOwnFolder
+    Delete "$SMPROGRAMS\${DISPLAY_NAME}.lnk"
+    Delete "$DESKTOP\${DISPLAY_NAME}.lnk"
     DeleteRegKey HKCU "${UNINSTALL_KEY}"
-    RMDir /r "$INSTDIR"                              ; Checked above: a folder named Liora
+    RMDir /r "$INSTDIR"                              ; Checked above: a folder named ${FOLDER_NAME}
 SectionEnd
 
-; Only when ticked (never in a silent uninstall): Liora's own data. Where Liora keeps it: the app
-; data folder (QStandardPaths::AppDataLocation, the default database) and the registry key of
-; its QSettings("LeineHive", "Liora"). Databases saved elsewhere aren't Liora's to delete.
+; Only when ticked (never in a silent uninstall): the program's own data. Where it keeps it: the
+; app data folder (QStandardPaths::AppDataLocation, the default database) and the registry key of
+; its QSettings(ORGANIZATION, NAME). Databases saved elsewhere aren't the program's to delete.
 Section /o "un.My data" SecUnData
-    RMDir /r "$APPDATA\Liora"
-    DeleteRegKey HKCU "Software\LeineHive\Liora"
-    DeleteRegKey /ifempty HKCU "Software\LeineHive"
+    RMDir /r "$APPDATA\${NAME}"
+    DeleteRegKey HKCU "Software\${ORGANIZATION}\${NAME}"
+    DeleteRegKey /ifempty HKCU "Software\${ORGANIZATION}"
 SectionEnd
 
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecUnLiora} "The program, its shortcuts and its entry in Settings > Apps."
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecUnData} "Also deletes your data for good: the database in $APPDATA\Liora and all settings. Databases you saved in other folders are kept."
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecUnProgram} "The program, its shortcuts and its entry in Settings > Apps."
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecUnData} "Also deletes your data for good: the database in $APPDATA\${NAME} and all settings. Databases you saved in other folders are kept."
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_END

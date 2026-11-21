@@ -471,7 +471,8 @@ jobs:
           name=${{ steps.package.outputs.name }}
           version=$(sed -n 's/^project([A-Za-z]* VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
           makensis -V2 -DVERSION="$version" -DSOURCE="$PWD/dist/$name" \
-                   -DICON="$PWD/build-windows/generated/liora.ico" -DOUTFILE="$PWD/dist/$name-setup.exe" \
+                   -DICON="$PWD/build-windows/generated/liora.ico" -DNAMES="$PWD/build-windows/generated/names.nsh" \
+                   -DOUTFILE="$PWD/dist/$name-setup.exe" \
                    installer/liora.nsi
 
       # Install silently, start the installed Liora with only its own files, uninstall, and check
@@ -591,7 +592,8 @@ jobs:
           name=${{ steps.package.outputs.name }}
           version=$(sed -n 's/^project([A-Za-z]* VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
           makensis -V2 -DVERSION="$version" -DSOURCE="$PWD/dist/$name" \
-                   -DICON="$PWD/build-win7/generated/liora.ico" -DOUTFILE="$PWD/dist/$name-setup.exe" \
+                   -DICON="$PWD/build-win7/generated/liora.ico" -DNAMES="$PWD/build-win7/generated/names.nsh" \
+                   -DOUTFILE="$PWD/dist/$name-setup.exe" \
                    installer/liora-win7.nsi
 
       - name: Check the installer
