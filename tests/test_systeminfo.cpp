@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "appname.h"
 #include <QDir>
 
 #include "db/databasemanager.h"
@@ -37,24 +38,24 @@ private slots:
 
     void versionTextShowsTheCommitInDebugBuilds() {
         const QString text = SystemInfo::versionText();
-        QVERIFY(text.startsWith(AION_VERSION));
+        QVERIFY(text.startsWith(APP_VERSION));
 #ifdef QT_NO_DEBUG
-        QCOMPARE(text, QString(AION_VERSION));
+        QCOMPARE(text, QString(APP_VERSION));
 #else
         QVERIFY(text.contains("(debug"));
-        if (QString(AION_GIT_COMMIT) != "unknown") QVERIFY(text.contains(AION_GIT_COMMIT));
+        if (QString(APP_GIT_COMMIT) != "unknown") QVERIFY(text.contains(APP_GIT_COMMIT));
 #endif
     }
 
     void reportListsBuildAndDatabaseDetails() {
         // Database inside the home folder, so the report must mask its path
-        TestFolder dir(QDir::homePath() + "/aion-systeminfo-XXXXXX");
+        TestFolder dir(QDir::homePath() + "/liora-systeminfo-XXXXXX");
         QVERIFY(dir.isValid());
         QVERIFY(DatabaseSession::create(dir.filePath("report.db")));
 
         const QString report = SystemInfo::report();
-        QVERIFY(report.startsWith("Aion\n"));
-        QVERIFY(report.contains(QString("  Version: %1\n").arg(AION_VERSION)));
+        QVERIFY(report.startsWith(QString(APP_NAME) + "\n"));
+        QVERIFY(report.contains(QString("  Version: %1\n").arg(APP_VERSION)));
         QVERIFY(report.contains("  Commit: "));
         QVERIFY(report.contains("\nSystem\n"));
         QVERIFY(report.contains("\nData\n"));

@@ -1,4 +1,5 @@
 #include "backup.h"
+#include "appname.h"
 #include "databasemanager.h"
 #include "migrationmanager.h"
 
@@ -64,7 +65,7 @@ bool saveAutomatic(const QString& kind, QString* reason, int keep = KeptAutomati
         return false;
     }
 
-    // Only Aion's own backups of this kind: other files may just start with the same words. The
+    // Only Liora's own backups of this kind: other files may just start with the same words. The
     // dates in the names sort newest first.
     const QRegularExpression ownName(QString("^%1\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.db$").arg(QRegularExpression::escape(prefix)));
     const QStringList kept = folder.entryList({"*.db"}, QDir::Files, QDir::Name | QDir::Reversed).filter(ownName);
@@ -237,14 +238,14 @@ std::optional<Contents> inspect(const QString& path, QString* errorMessage) {
             if (!query.exec("PRAGMA integrity_check") || !query.next() || query.value(0).toString() != "ok") {
                 problem = QCoreApplication::translate("Backup", "The file isn't a database, or it's damaged.");
             } else if (!query.exec("SELECT MAX(version) FROM schema_migrations") || !query.next()) {
-                problem = QCoreApplication::translate("Backup", "This file isn't an Aion database.");
+                problem = QCoreApplication::translate("Backup", "This file isn't a %1 database.").arg(APP_NAME);
             } else if (query.value(0).toInt() > MigrationManager(BuiltInMigrations).newestKnownVersion()) {
-                problem = QCoreApplication::translate("Backup", "It's from a newer version of Aion. Update Aion to restore it.");
+                problem = QCoreApplication::translate("Backup", "It's from a newer version of %1. Update %1 to restore it.").arg(APP_NAME);
             } else if (!MigrationManager::missingRequiredObject(file).isEmpty()) {
-                problem = QCoreApplication::translate("Backup", "This file isn't an Aion database.");
+                problem = QCoreApplication::translate("Backup", "This file isn't a %1 database.").arg(APP_NAME);
             } else if (!count("users", &found.users) || !count("accounts", &found.accounts)
                        || !count("transactions", &found.transactions)) {
-                problem = QCoreApplication::translate("Backup", "This file isn't an Aion database.");
+                problem = QCoreApplication::translate("Backup", "This file isn't a %1 database.").arg(APP_NAME);
             } else {
                 contents = found;
             }

@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "appname.h"
 
 #include "commandline.h"
 #include "systeminfo.h"
@@ -8,14 +9,14 @@ class TestCommandLine : public QObject {
 
     static int run(const QStringList& options, QString* output) {
         QTextStream out(output);
-        return CommandLine::handle(QStringList{"Aion"} + options, out);
+        return CommandLine::handle(QStringList{"Liora"} + options, out);
     }
 
 private slots:
     void versionPrintsTheVersionAndExits() {
         QString output;
         QCOMPARE(run({"--version"}, &output), 0);
-        QCOMPARE(output, QString("Aion %1\n").arg(SystemInfo::versionText()));
+        QCOMPARE(output, QString("%1 %2\n").arg(APP_NAME, SystemInfo::versionText()));
     }
 
     void helpListsTheOptionsAndExits() {
@@ -35,7 +36,7 @@ private slots:
     }
 
     void unknownOptionsDontStopTheStart() {
-        // Qt's own options, or a typo, start Aion as usual
+        // Qt's own options, or a typo, start Liora as usual
         QString output;
         QCOMPARE(run({"-style", "fusion"}, &output), -1);
         QCOMPARE(run({"--poggers"}, &output), -1);

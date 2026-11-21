@@ -1,4 +1,5 @@
 #include "sidebarwidget.h"
+#include "appname.h"
 #include "applocale.h"
 #include "account.h"
 #include "budget.h"
@@ -7,6 +8,7 @@
 #include "theme.h"
 #include "user.h"
 #include "icons.h"
+#include "version.h"
 
 #include <QAbstractButton>
 #include <QHBoxLayout>
@@ -25,6 +27,21 @@ constexpr int COLLAPSED_WIDTH = 52;
 constexpr int ICON_X = 9;                            // Left edge of the icon column
 constexpr int TEXT_X = 38;                           // Left edge of the label column
 constexpr int PADDING_RIGHT = 9;
+constexpr int WORDMARK_HEIGHT = 24;                  // A little under the logo's 28, so it doesn't outweigh the page
+constexpr int DIVIDER_GAP = 6;                       // From the divider to the first item
+
+// The wordmark's own green-grey ink in the light theme; on the dark sidebar a soft off-white and a
+// brighter leaf, since pure white glares and the leaf's own green sinks into the dark
+QColor wordmarkInk() {
+    return Theme::isDark() ? Theme::colors().textSecondary : QColor(0x1F, 0x2A, 0x24);
+}
+QColor wordmarkLeaf() {
+    return Theme::isDark() ? QColor(0x5F, 0xB5, 0x80) : QColor(0x3E, 0x8E, 0x5E);
+}
+// The Beta tag in the leaf's green: lighter text on the dark sidebar, darker on the light one
+QColor betaText() {
+    return Theme::isDark() ? QColor(0x7F, 0xD1, 0xA0) : QColor(0x2A, 0x6F, 0x48);
+}
 
 QString initialsFor(const QString& name) {
     const QStringList parts = name.split(' ', Qt::SkipEmptyParts);
@@ -194,25 +211,41 @@ SidebarWidget::SidebarWidget(QWidget* parent)
     root->setContentsMargins(8, 12, 8, 12);
     root->setSpacing(2);
 
-    // Logo and name; the collapsed rail keeps only the logo
-    auto* brand = new QWidget(this);
-    brand->setObjectName("sidebarBrand");
-    auto* brandLayout = new QHBoxLayout(brand);
-    brandLayout->setContentsMargins(4, 0, 0, 12);
-    brandLayout->setSpacing(10);
-    auto* logo = new QLabel(brand);
-    logo->setObjectName("sidebarLogo");
-    logo->setPixmap(Icons::logo(28, devicePixelRatioF()));
-    logo->setAccessibleName(tr("Aion logo"));
-    brandLayout->addWidget(logo);
-    brandName = new QLabel("Aion", brand);
-    brandName->setObjectName("sidebarBrandName");
-    QFont brandFont = brandName->font();
-    brandFont.setPointSize(13);
-    brandFont.setWeight(QFont::DemiBold);
-    brandName->setFont(brandFont);
-    brandLayout->addWidget(brandName, 1);
-    root->addWidget(brand);
+    // The wordmark; the collapsed rail has room only for the logo. Both centred in a row of fixed
+    // height, so the items below stay put when one swaps for the other. A divider under it.
+    brandRow = new QWidget(this);
+    brandRow->setObjectName("sidebarBrand");
+    auto* brandLayout = new QHBoxLayout(brandRow);
+    brandLayout->setContentsMargins(4, 4, 0, 2 * DIVIDER_GAP + 1);
+    brandLayout->setSpacing(0);
+    brandRow->setFixedHeight(4 + 28 + 2 * DIVIDER_GAP + 1);
+    brandLogo = new QLabel(brandRow);
+    brandLogo->setObjectName("sidebarLogo");
+    brandLogo->setPixmap(Icons::logo(28, devicePixelRatioF()));
+    brandLogo->setAccessibleName(tr("%1 logo").arg(APP_NAME));
+    brandLayout->addWidget(brandLogo, 0, Qt::AlignVCenter);
+    wordmark = new QLabel(brandRow);
+    wordmark->setObjectName("sidebarWordmark");
+    wordmark->setFixedHeight(WORDMARK_HEIGHT);
+    wordmark->setContentsMargins(ICON_X - 4, 0, 0, 0);    // Its "l" lines up with the icons below
+    wordmark->setAccessibleName(APP_NAME);
+    updateWordmark();
+    brandLayout->addWidget(wordmark, 0, Qt::AlignVCenter);
+    // Until version 1.0, so it goes by itself with the version in CMakeLists.txt
+    beta = new QLabel(tr("Beta"), brandRow);
+    beta->setObjectName("sidebarBeta");
+    beta->setToolTip(tr("Version %1, an early build").arg(APP_VERSION));
+    QFont betaFont = beta->font();
+    betaFont.setPixelSize(10);
+    betaFont.setWeight(QFont::DemiBold);
+    betaFont.setCapitalization(QFont::AllUppercase);
+    betaFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.5);
+    beta->setFont(betaFont);
+    styleBeta();
+    brandLayout->addSpacing(8);
+    brandLayout->addWidget(beta, 0, Qt::AlignBottom);   // Reaches just below the wordmark's baseline, like a tag beside text
+    brandLayout->addStretch(1);
+    root->addWidget(brandRow);
 
     // Navigation
     navGroup.setExclusive(true);
@@ -284,7 +317,7 @@ SidebarWidget::SidebarWidget(QWidget* parent)
     connect(&widthAnimation, &QVariantAnimation::finished, this, [this]() {
         if (!collapsed) {
             sectionsArea->setVisible(true);
-            brandName->setVisible(true);
+            showBrand();
         }
     });
 
@@ -370,7 +403,7 @@ void SidebarWidget::setCollapsed(bool shouldCollapse, bool animate) {
     // Sections disappear before shrinking and reappear once the sidebar is wide again
     if (collapsed) {
         sectionsArea->setVisible(false);
-        brandName->setVisible(false);
+        showBrand();
     }
 
     const int target = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
@@ -382,8 +415,29 @@ void SidebarWidget::setCollapsed(bool shouldCollapse, bool animate) {
     } else {
         setFixedWidth(target);
         sectionsArea->setVisible(!collapsed);
-        brandName->setVisible(!collapsed);
+        showBrand();
     }
+}
+
+void SidebarWidget::showBrand() {
+    wordmark->setVisible(!collapsed);
+    beta->setVisible(!collapsed && isBeta(APP_VERSION_MAJOR));
+    brandLogo->setVisible(collapsed);
+}
+
+bool SidebarWidget::isBeta(int majorVersion) {
+    return majorVersion < 1;
+}
+
+void SidebarWidget::styleBeta() {
+    QColor tint = wordmarkLeaf();
+    tint.setAlpha(Theme::isDark() ? 41 : 36);
+    beta->setStyleSheet(QString("QLabel { color: %1; background: %2; border-radius: 8px; padding: 1px 7px; }")
+                            .arg(betaText().name(), tint.name(QColor::HexArgb)));
+}
+
+void SidebarWidget::updateWordmark() {
+    wordmark->setPixmap(Icons::wordmark(WORDMARK_HEIGHT, wordmarkInk(), wordmarkLeaf(), devicePixelRatioF()));
 }
 
 void SidebarWidget::loadUser() {
@@ -594,6 +648,8 @@ void SidebarWidget::styleScrollBar() {
 void SidebarWidget::changeEvent(QEvent* event) {
     if (event->type() == QEvent::PaletteChange && sectionsArea) {
         styleScrollBar();
+        updateWordmark();
+        styleBeta();
     }
     QWidget::changeEvent(event);
 }
@@ -603,4 +659,7 @@ void SidebarWidget::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.fillRect(rect(), colors.sidebarBackground);
     painter.fillRect(QRect(width() - 1, 0, 1, height()), colors.sidebarBorder);
+    // The divider under the wordmark, as wide as the items' highlights
+    const int dividerY = brandRow->geometry().bottom() - DIVIDER_GAP;
+    painter.fillRect(QRect(8, dividerY, width() - 16, 1), colors.sidebarBorder);
 }

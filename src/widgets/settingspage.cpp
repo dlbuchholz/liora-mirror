@@ -1,4 +1,5 @@
 #include "settingspage.h"
+#include "appname.h"
 #include "dialog/rawsettingsdialog.h"
 #include "aboutwidget.h"
 #include "accounttypessettings.h"
@@ -297,12 +298,12 @@ void SettingsPage::buildAppearanceSection()
     form->addRow(tr("Language"), languageCombo);
     watch(languageCombo);
 
-    // Shown while the saved language isn't the one Aion started with
+    // Shown while the saved language isn't the one Liora started with
     restartNote = new QWidget(this);
     restartNote->setObjectName("restartNote");
     auto *restartLayout = new QHBoxLayout(restartNote);
     restartLayout->setContentsMargins(0, 0, 0, 0);
-    auto *restartLabel = new QLabel(tr("Takes effect when Aion restarts."), restartNote);
+    auto *restartLabel = new QLabel(tr("Takes effect when %1 restarts.").arg(APP_NAME), restartNote);
     restartLabel->setForegroundRole(QPalette::PlaceholderText);
     auto *restartButton = new QToolButton(restartNote);
     restartButton->setObjectName("restartButton");
@@ -501,7 +502,7 @@ void SettingsPage::loadSettings()
             themeCombo->setCurrentIndex(i);
         }
     }
-    // A stored language Aion doesn't have follows the system (Language::resolve), so it shows as that
+    // A stored language Liora doesn't have follows the system (Language::resolve), so it shows as that
     const int languageIndex = languageCombo->findData(settings.getLanguage());
     languageCombo->setCurrentIndex(languageIndex >= 0 ? languageIndex : languageCombo->findData(Language::System));
     updateRestartNote();

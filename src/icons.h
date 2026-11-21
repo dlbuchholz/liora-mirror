@@ -21,9 +21,13 @@ QString file(const QString& name, const QColor& color, int size);
 // like ✕ as text would make Windows search its fonts for them, which takes up to a second.
 void setThemedIcon(QAbstractButton* button, const QString& name, int size = 14);
 
-// The Aion logo (its own colours, not tinted)
+// The Liora logo (its own colours, not tinted)
 QPixmap logo(int size, qreal devicePixelRatio);
 QIcon appIcon();                                     // Window and taskbar icon
+
+// The Liora wordmark, height pixels high, cropped to what it draws (not its empty margins). Its
+// strokes, the letters, take the ink colour; its fills, the leaf, the leaf colour.
+QPixmap wordmark(int height, const QColor& ink, const QColor& leaf, qreal devicePixelRatio);
 
 } // namespace Icons
 
