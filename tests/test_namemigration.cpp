@@ -68,10 +68,10 @@ private slots:
         const NameMigration::Places standard = NameMigration::standardPlaces();
         QCOMPARE(QCoreApplication::applicationName(), name);              // Put back as it was
         QCOMPARE(standard.newDataFolder, QDir::cleanPath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)));
-        QVERIFY2(standard.oldDataFolder.endsWith("/Aion"), qPrintable(standard.oldDataFolder));
+        QVERIFY2(standard.oldDataFolder.endsWith("/" APP_PREVIOUS_NAME), qPrintable(standard.oldDataFolder));
         QCOMPARE(QFileInfo(standard.oldDataFolder).path(), QFileInfo(standard.newDataFolder).path());   // Side by side
         QCOMPARE(standard.organization, QString(APP_ORGANIZATION));
-        QCOMPARE(standard.oldApplication, QString("Aion"));
+        QCOMPARE(standard.oldApplication, QString(APP_PREVIOUS_NAME));
         QCOMPARE(standard.newApplication, QString(APP_NAME));
     }
 
@@ -107,6 +107,18 @@ private slots:
     }
 
     void nothingUnderTheOldNameChangesNothing() {
+        QString error;
+        QCOMPARE(NameMigration::carryOver(places, &error), Outcome::NotNeeded);
+        QVERIFY(error.isEmpty());
+        QVERIFY(newSettings().allKeys().isEmpty());
+        QVERIFY(!QFileInfo::exists(places.newDataFolder));
+    }
+
+    // Without an earlier name (APP_PREVIOUS_NAME empty) nothing is taken over, even when the
+    // folder it would point to holds data
+    void withoutAPreviousNameNothingIsCarried() {
+        useOldName();
+        places.oldApplication.clear();
         QString error;
         QCOMPARE(NameMigration::carryOver(places, &error), Outcome::NotNeeded);
         QVERIFY(error.isEmpty());

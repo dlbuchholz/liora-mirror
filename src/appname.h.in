@@ -7,7 +7,12 @@
 // files that only show the name.
 #define APP_NAME "@PROJECT_NAME@"
 
-// QSettings' organization. Not set on the application, so the app data folder is just APP_NAME.
-#define APP_ORGANIZATION "LeineHive"
+// The program's earlier name, whose data and settings it takes over (namemigration.h); empty
+// when there was none. Set in CMakeLists.txt.
+#define APP_PREVIOUS_NAME "@APP_PREVIOUS_NAME@"
+
+// QSettings' organization, set in CMakeLists.txt. Not set on the application, so the app data
+// folder is just APP_NAME.
+#define APP_ORGANIZATION "@APP_ORGANIZATION@"
 
 #endif // APPNAME_H

@@ -105,6 +105,11 @@ Outcome carryOver(const Places& places, QString* error) {
     QString ignored;
     QString& reason = error ? *error : ignored;
 
+    // No earlier name, so nothing to take over. Checked first: without a name, the old "data
+    // folder" would be the app data folder of every program.
+    if (places.oldApplication.isEmpty()) {
+        return Outcome::NotNeeded;
+    }
     QSettings newSettings(QSettings::defaultFormat(), QSettings::UserScope, places.organization, places.newApplication);
     if (!newSettings.allKeys().isEmpty()) {
         return Outcome::NotNeeded;                   // Carried over before, or used under the new name already

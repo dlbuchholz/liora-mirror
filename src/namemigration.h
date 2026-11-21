@@ -4,13 +4,16 @@
 #include <QString>
 #include <QVariant>
 
-// The program was called Aion before. Its data folder and settings carry that name, so on the
+#include "appname.h"
+
+// The program had another name before (APP_PREVIOUS_NAME, set in CMakeLists.txt). Its data
+// folder and settings carry that name, so on the
 // first start under the new name they're copied over: the data folder (the default database and
 // its backups) and every setting, with paths that pointed into the old folder now pointing into
 // the new one. The old folder and settings stay as they are, as a backup.
 namespace NameMigration {
 
-inline constexpr char PreviousName[] = "Aion";
+inline constexpr char PreviousName[] = APP_PREVIOUS_NAME;   // Empty when there was none
 
 // Where the old and the new name keep their data and settings
 struct Places {

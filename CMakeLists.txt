@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.19)
 project(Liora VERSION 0.2.0 LANGUAGES C CXX)          # C for thirdparty/miniz
+# The program's earlier name: on its first start the program takes over that name's data and
+# settings (src/namemigration.cpp), and the installers remove that name's installation. Empty
+# when there was none.
+set(APP_PREVIOUS_NAME Aion)
+# QSettings' organization: the settings' registry key (Software\<organization>\<name>)
+set(APP_ORGANIZATION LeineHive)
 
 include(CTest)
 
@@ -39,7 +45,7 @@ endif()
 # Version header (APP_VERSION etc.) generated from the project version above.
 # Only files that include version.h are rebuilt when the version changes.
 configure_file(${SRC_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h @ONLY)
-configure_file(${SRC_DIR}/appname.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/appname.h @ONLY)   # APP_NAME, the first word of project() above
+configure_file(${SRC_DIR}/appname.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/appname.h @ONLY)   # APP_NAME etc., from the top of this file
 
 # Compiler warnings for Liora's own code (not Qt's headers). LIORA_WARNINGS_AS_ERRORS turns them
 # into errors, for CI or before a release.
