@@ -482,6 +482,137 @@ Alles in der geöffneten Datenbank wird ersetzt. Deine aktuellen Daten werden vo
     </message>
 </context>
 <context>
+    <name>BalanceEntriesDialog</name>
+    <message>
+        <source>Enter balances</source>
+        <translation>Kontostände eintragen</translation>
+    </message>
+    <message>
+        <source>Enter what the account was worth at the end of each day, or paste two columns, dates and balances, from a spreadsheet. Each difference becomes a balance correction: it counts towards the balance, not towards income or spending. A day that already has a correction gets the new one instead.</source>
+        <translation>Trag ein, was das Konto am Ende jedes Tages wert war, oder füge zwei Spalten, Datum und Kontostand, aus einer Tabelle ein. Jede Differenz wird zu einer Saldokorrektur: Sie zählt zum Kontostand, nicht zu Einnahmen oder Ausgaben. Hat ein Tag schon eine Korrektur, bekommt er stattdessen die neue.</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>Konto</translation>
+    </message>
+    <message>
+        <source>Date</source>
+        <translation>Datum</translation>
+    </message>
+    <message>
+        <source>Balance at day&apos;s end</source>
+        <translation>Stand am Tagesende</translation>
+    </message>
+    <message>
+        <source>In %1 now</source>
+        <translation>Jetzt in %1</translation>
+    </message>
+    <message>
+        <source>Correction</source>
+        <translation>Korrektur</translation>
+    </message>
+    <message>
+        <source>What the account was worth at the end of that day</source>
+        <translation>Was das Konto am Ende dieses Tages wert war</translation>
+    </message>
+    <message>
+        <source>The balance %1 shows for the end of that day, without a correction already on it and with the rows above</source>
+        <translation>Der Kontostand, den %1 für das Ende dieses Tages zeigt: ohne eine Korrektur, die schon auf dem Tag liegt, und mit den Zeilen darüber</translation>
+    </message>
+    <message>
+        <source>Dates like %1, one balance a day. Paste with Ctrl+V or:</source>
+        <translation>Datum wie %1, ein Kontostand pro Tag. Einfügen mit Strg+V oder:</translation>
+    </message>
+    <message>
+        <source>Paste from spreadsheet</source>
+        <translation>Aus Tabelle einfügen</translation>
+    </message>
+    <message>
+        <source>Add corrections</source>
+        <translation>Korrekturen hinzufügen</translation>
+    </message>
+    <message>
+        <source>Which day?</source>
+        <translation>Welcher Tag?</translation>
+    </message>
+    <message>
+        <source>Which balance?</source>
+        <translation>Welcher Kontostand?</translation>
+    </message>
+    <message>
+        <source>Same day below</source>
+        <translation>Gleicher Tag weiter unten</translation>
+    </message>
+    <message>
+        <source>Matches</source>
+        <translation>Stimmt</translation>
+    </message>
+    <message>
+        <source>Replaces the correction already on this day</source>
+        <translation>Ersetzt die Korrektur, die schon auf diesem Tag liegt</translation>
+    </message>
+    <message>
+        <source>Add an account first.</source>
+        <translation>Lege zuerst ein Konto an.</translation>
+    </message>
+    <message>
+        <source>%1 row can&apos;t be read yet.</source>
+        <translation>%1 Zeile ist noch nicht lesbar.</translation>
+    </message>
+    <message>
+        <source>%1 rows can&apos;t be read yet.</source>
+        <translation>%1 Zeilen sind noch nicht lesbar.</translation>
+    </message>
+    <message>
+        <source>Enter each day&apos;s balance as it was at the end of that day.</source>
+        <translation>Trag für jeden Tag den Kontostand am Ende des Tages ein.</translation>
+    </message>
+    <message>
+        <source>%1 already shows these balances. Nothing to correct.</source>
+        <translation>%1 zeigt bereits diese Kontostände. Es gibt nichts zu korrigieren.</translation>
+    </message>
+    <message>
+        <source>Takes away %1 correction that&apos;s no longer needed.</source>
+        <translation>Entfernt %1 Korrektur, die nicht mehr nötig ist.</translation>
+    </message>
+    <message>
+        <source>Takes away %1 corrections that are no longer needed.</source>
+        <translation>Entfernt %1 Korrekturen, die nicht mehr nötig sind.</translation>
+    </message>
+    <message>
+        <source>Adds %1 correction.</source>
+        <translation>Fügt %1 Korrektur hinzu.</translation>
+    </message>
+    <message>
+        <source>Adds %1 corrections.</source>
+        <translation>Fügt %1 Korrekturen hinzu.</translation>
+    </message>
+    <message>
+        <source>Replaces %1 correction already there.</source>
+        <translation>Ersetzt %1 vorhandene Korrektur.</translation>
+    </message>
+    <message>
+        <source>Replaces %1 corrections already there.</source>
+        <translation>Ersetzt %1 vorhandene Korrekturen.</translation>
+    </message>
+    <message>
+        <source>%1 pasted line couldn&apos;t be read and was left out.</source>
+        <translation>%1 eingefügte Zeile war nicht lesbar und wurde weggelassen.</translation>
+    </message>
+    <message>
+        <source>%1 pasted lines couldn&apos;t be read and were left out.</source>
+        <translation>%1 eingefügte Zeilen waren nicht lesbar und wurden weggelassen.</translation>
+    </message>
+    <message>
+        <source>Entered as a balance</source>
+        <translation>Als Kontostand eingetragen</translation>
+    </message>
+    <message>
+        <source>The corrections couldn&apos;t all be saved.</source>
+        <translation>Die Korrekturen konnten nicht alle gespeichert werden.</translation>
+    </message>
+</context>
+<context>
     <name>Budget</name>
     <message>
         <source>No category</source>
@@ -2450,6 +2581,18 @@ Saldo %4</translation>
         <translation>KW%1</translation>
     </message>
     <message>
+        <source>Trend: %1</source>
+        <translation>Trend: %1</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>Durchschnitt: %1</translation>
+    </message>
+    <message>
+        <source>Together: %1</source>
+        <translation>Zusammen: %1</translation>
+    </message>
+    <message>
         <source>Nothing spent on %1 in this range.</source>
         <translation>Keine Ausgaben für %1 in diesem Zeitraum.</translation>
     </message>
@@ -2726,6 +2869,38 @@ Klicken für den Verlauf</translation>
     <message>
         <source>Income %1, spending %2, net %3</source>
         <translation>Einnahmen %1, Ausgaben %2, Saldo %3</translation>
+    </message>
+    <message>
+        <source>By account</source>
+        <translation>Nach Konto</translation>
+    </message>
+    <message>
+        <source>Show or hide %1</source>
+        <translation>%1 zeigen oder ausblenden</translation>
+    </message>
+    <message>
+        <source>No trend</source>
+        <translation>Kein Trend</translation>
+    </message>
+    <message>
+        <source>Trend</source>
+        <translation>Trend</translation>
+    </message>
+    <message>
+        <source>Average</source>
+        <translation>Durchschnitt</translation>
+    </message>
+    <message>
+        <source>The straight line closest to the balance</source>
+        <translation>Die Gerade, die dem Kontostand am nächsten kommt</translation>
+    </message>
+    <message>
+        <source>Each day, the average of the 3 months up to it</source>
+        <translation>Für jeden Tag der Durchschnitt der 3 Monate bis dahin</translation>
+    </message>
+    <message>
+        <source>Each day, the average of the month up to it</source>
+        <translation>Für jeden Tag der Durchschnitt des Monats bis dahin</translation>
     </message>
     <message>
         <source>Balance at the end</source>
@@ -3548,6 +3723,10 @@ Umsätze behalten ihre Kategorien.</translation>
         <translation>Kontostand korrigieren…</translation>
     </message>
     <message>
+        <source>Enter balances…</source>
+        <translation>Kontostände eintragen…</translation>
+    </message>
+    <message>
         <source>Edit account…</source>
         <translation>Konto bearbeiten…</translation>
     </message>
@@ -3919,6 +4098,14 @@ Klicken zum Wechseln</translation>
     <message>
         <source>Match the balance your bank shows by adding a balance correction</source>
         <translation>Mit einer Saldokorrektur an den Kontostand deiner Bank angleichen</translation>
+    </message>
+    <message>
+        <source>Enter balances…</source>
+        <translation>Kontostände eintragen…</translation>
+    </message>
+    <message>
+        <source>Enter an account&apos;s balance on many days at once, such as a depot&apos;s value each month</source>
+        <translation>Den Kontostand für viele Tage auf einmal eintragen, etwa den Wert eines Depots zu jedem Monatsende</translation>
     </message>
     <message>
         <source>Add transaction</source>
