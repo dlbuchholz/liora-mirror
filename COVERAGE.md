@@ -1,33 +1,34 @@
-<!-- Measured at ffdbc4b77053425e7606c81b95b16130caa9797c by scripts/coverage.sh -->
+<!-- Measured at 30caab7c93d105820721449d1066183d1643a228 by scripts/coverage.sh -->
 # Test coverage
 
 ![Coverage](docs/coverage-badge.svg)
 
-**99%** · 13652 / 13821 lines · 50 test suites · 740 test cases · 2026-11-12 · `ffdbc4b`
+**99%** · 13821 / 14016 lines · 51 test suites · 767 test cases · 2026-11-22 · `30caab7`
 
 ## Files
 
 | File | Coverage | Lines | Covered by |
 |---|---:|---:|---|
-| [src/main.cpp](src/main.cpp) | 0% | 0 / 61 | *none* |
+| [src/main.cpp](src/main.cpp) | 0% | 0 / 76 | *none* |
 | [src/categorycolors.cpp](src/categorycolors.cpp) | 55% | 23 / 42 | applyrulesdialog, balance, budgetcharts and 10 more |
 | [src/db/databasemanager.cpp](src/db/databasemanager.cpp) | 74% | 35 / 47 | aboutwidget, account, addaccountwidget and 36 more |
-| [src/language.cpp](src/language.cpp) | 83% | 57 / 69 | applocale, budgetpage, categorysettings and 6 more |
+| [src/language.cpp](src/language.cpp) | 83% | 57 / 69 | applocale, branding, budgetpage and 7 more |
 | [src/widgets/periodpicker.h](src/widgets/periodpicker.h) | 83% | 5 / 6 | budgetpage, mainwindow, rendering and 2 more |
 | [src/rule.h](src/rule.h) | 86% | 6 / 7 | applyrulesdialog, balance, csvimport and 6 more |
+| [src/namemigration.cpp](src/namemigration.cpp) | 88% | 84 / 95 | namemigration |
 | [src/commandline.cpp](src/commandline.cpp) | 89% | 17 / 19 | commandline |
 | [src/applocale.cpp](src/applocale.cpp) | 91% | 48 / 53 | applocale, applyrulesdialog, balance and 17 more |
 | [src/db/backup.cpp](src/db/backup.cpp) | 96% | 166 / 173 | backup, backupbeforeupdate, databasesession and 6 more |
 | [src/mainwindow.cpp](src/mainwindow.cpp) | 97% | 144 / 148 | mainwindow, rendering |
 | [src/widgets/categorytag.cpp](src/widgets/categorytag.cpp) | 97% | 34 / 35 | applyrulesdialog, balance, categorysettings and 4 more |
 | [src/db/migrationmanager.cpp](src/db/migrationmanager.cpp) | 98% | 143 / 146 | aboutwidget, account, addaccountwidget and 35 more |
-| [src/icons.cpp](src/icons.cpp) | 98% | 61 / 62 | aboutwidget, branding, budgetpage and 11 more |
 | [src/systeminfo.cpp](src/systeminfo.cpp) | 98% | 58 / 59 | aboutwidget, branding, commandline and 6 more |
 | [src/dashboard.cpp](src/dashboard.cpp) | 99% | 93 / 94 | balance, dashboard, dashboardpage and 3 more |
 | [src/dialog/applyrulesdialog.cpp](src/dialog/applyrulesdialog.cpp) | 99% | 108 / 109 | applyrulesdialog, rendering, rulessettings |
 | [src/dialog/balancecorrectiondialog.cpp](src/dialog/balancecorrectiondialog.cpp) | 99% | 96 / 97 | balance, rendering, transactionspage |
-| [src/dialog/importmanagerdialog.cpp](src/dialog/importmanagerdialog.cpp) | 99% | 1056 / 1062 | balance, csvimport, rendering, transactionspage |
+| [src/dialog/importmanagerdialog.cpp](src/dialog/importmanagerdialog.cpp) | 99% | 1057 / 1063 | balance, csvimport, rendering, transactionspage |
 | [src/dialog/rawsettingsdialog.cpp](src/dialog/rawsettingsdialog.cpp) | 99% | 81 / 82 | rawsettingsdialog, settingspage |
+| [src/icons.cpp](src/icons.cpp) | 99% | 104 / 105 | aboutwidget, branding, budgetpage and 11 more |
 | [src/report.cpp](src/report.cpp) | 99% | 414 / 417 | budgetpage, mainwindow, rendering and 4 more |
 | [src/rule.cpp](src/rule.cpp) | 99% | 461 / 465 | applyrulesdialog, balance, csvimport and 7 more |
 | [src/spreadsheet.cpp](src/spreadsheet.cpp) | 99% | 340 / 344 | balance, csvimport, spreadsheet |
@@ -36,7 +37,7 @@
 | [src/widgets/aboutwidget.cpp](src/widgets/aboutwidget.cpp) | 99% | 99 / 100 | aboutwidget, branding, mainwindow and 2 more |
 | [src/widgets/accounttypessettings.cpp](src/widgets/accounttypessettings.cpp) | 99% | 133 / 134 | categorysettings, mainwindow, rendering, settingspage |
 | [src/widgets/budgetcharts.cpp](src/widgets/budgetcharts.cpp) | 99% | 355 / 357 | budgetcharts, reportspage |
-| [src/widgets/sidebarwidget.cpp](src/widgets/sidebarwidget.cpp) | 99% | 432 / 435 | mainwindow, rendering, sidebarwidget |
+| [src/widgets/sidebarwidget.cpp](src/widgets/sidebarwidget.cpp) | 99% | 472 / 475 | mainwindow, rendering, sidebarwidget |
 | [src/account.cpp](src/account.cpp) | 100% | 261 / 262 | account, addaccountwidget, applyrulesdialog and 27 more |
 | [src/amountcolor.h](src/amountcolor.h) | 100% | 5 / 5 | budgetpage, dashboardpage, rendering, transactionspage |
 | [src/balance.cpp](src/balance.cpp) | 100% | 22 / 22 | balance, csvimport, databasefailures and 5 more |
@@ -77,7 +78,7 @@
 | [src/widgets/accounttypessettings.h](src/widgets/accounttypessettings.h) | 100% | 1 / 1 | categorysettings, mainwindow, rendering, settingspage |
 | [src/widgets/addaccountwidget.cpp](src/widgets/addaccountwidget.cpp) | 100% | 38 / 38 | addaccountwidget, mainwindow |
 | [src/widgets/addaccountwidget.h](src/widgets/addaccountwidget.h) | 100% | 1 / 1 | addaccountwidget |
-| [src/widgets/backupsettings.cpp](src/widgets/backupsettings.cpp) | 100% | 213 / 214 | backup, mainwindow, rendering and 3 more |
+| [src/widgets/backupsettings.cpp](src/widgets/backupsettings.cpp) | 100% | 214 / 215 | backup, mainwindow, rendering and 3 more |
 | [src/widgets/backupsettings.h](src/widgets/backupsettings.h) | 100% | 1 / 1 | backup, mainwindow, rendering and 3 more |
 | [src/widgets/budgetcharts.h](src/widgets/budgetcharts.h) | 100% | 1 / 1 | budgetcharts |
 | [src/widgets/budgetdetail.cpp](src/widgets/budgetdetail.cpp) | 100% | 284 / 284 | budgetpage, mainwindow |
@@ -108,38 +109,39 @@
 
 ## Not covered yet
 
-- **src/main.cpp** (61 lines): [22–28](src/main.cpp#L22-L28), [30–31](src/main.cpp#L30-L31), [33–34](src/main.cpp#L33-L34), [37–40](src/main.cpp#L37-L40), [42–43](src/main.cpp#L42-L43), [46](src/main.cpp#L46), [48](src/main.cpp#L48), [50](src/main.cpp#L50), [53–54](src/main.cpp#L53-L54), [56–58](src/main.cpp#L56-L58), [62](src/main.cpp#L62), [64–66](src/main.cpp#L64-L66), [69–72](src/main.cpp#L69-L72), [74](src/main.cpp#L74), [77–87](src/main.cpp#L77-L87), [89–91](src/main.cpp#L89-L91), [93–95](src/main.cpp#L93-L95), [97–101](src/main.cpp#L97-L101), [103–107](src/main.cpp#L103-L107)
+- **src/main.cpp** (76 lines): [27–30](src/main.cpp#L27-L30), [32](src/main.cpp#L32), [34–37](src/main.cpp#L34-L37), [40–42](src/main.cpp#L40-L42), [45–51](src/main.cpp#L45-L51), [53–54](src/main.cpp#L53-L54), [56–57](src/main.cpp#L56-L57), [60–63](src/main.cpp#L60-L63), [65–66](src/main.cpp#L65-L66), [69](src/main.cpp#L69), [71](src/main.cpp#L71), [73–74](src/main.cpp#L73-L74), [77–78](src/main.cpp#L77-L78), [80–82](src/main.cpp#L80-L82), [86–87](src/main.cpp#L86-L87), [91](src/main.cpp#L91), [93–95](src/main.cpp#L93-L95), [98–101](src/main.cpp#L98-L101), [103](src/main.cpp#L103), [106–116](src/main.cpp#L106-L116), [118–120](src/main.cpp#L118-L120), [122–124](src/main.cpp#L122-L124), [126–130](src/main.cpp#L126-L130), [132–136](src/main.cpp#L132-L136)
 - **src/categorycolors.cpp** (19 lines): [22–39](src/categorycolors.cpp#L22-L39), [50](src/categorycolors.cpp#L50)
 - **src/db/databasemanager.cpp** (12 lines): [17](src/db/databasemanager.cpp#L17), [19–21](src/db/databasemanager.cpp#L19-L21), [25](src/db/databasemanager.cpp#L25), [58–60](src/db/databasemanager.cpp#L58-L60), [63–66](src/db/databasemanager.cpp#L63-L66)
-- **src/language.cpp** (12 lines): [80–81](src/language.cpp#L80-L81), [116–121](src/language.cpp#L116-L121), [123–126](src/language.cpp#L123-L126)
+- **src/language.cpp** (12 lines): [81–82](src/language.cpp#L81-L82), [117–122](src/language.cpp#L117-L122), [124–127](src/language.cpp#L124-L127)
 - **src/widgets/periodpicker.h** (1 lines): [72](src/widgets/periodpicker.h#L72)
 - **src/rule.h** (1 lines): [21](src/rule.h#L21)
-- **src/commandline.cpp** (2 lines): [36](src/commandline.cpp#L36), [47](src/commandline.cpp#L47)
+- **src/namemigration.cpp** (11 lines): [53–54](src/namemigration.cpp#L53-L54), [57–58](src/namemigration.cpp#L57-L58), [136–138](src/namemigration.cpp#L136-L138), [148–151](src/namemigration.cpp#L148-L151)
+- **src/commandline.cpp** (2 lines): [37](src/commandline.cpp#L37), [48](src/commandline.cpp#L48)
 - **src/applocale.cpp** (5 lines): [18](src/applocale.cpp#L18), [22](src/applocale.cpp#L22), [32](src/applocale.cpp#L32), [36](src/applocale.cpp#L36), [41](src/applocale.cpp#L41)
-- **src/db/backup.cpp** (7 lines): [37–38](src/db/backup.cpp#L37-L38), [40](src/db/backup.cpp#L40), [151–152](src/db/backup.cpp#L151-L152), [231](src/db/backup.cpp#L231), [247](src/db/backup.cpp#L247)
-- **src/mainwindow.cpp** (4 lines): [54–56](src/mainwindow.cpp#L54-L56), [58](src/mainwindow.cpp#L58)
+- **src/db/backup.cpp** (7 lines): [38–39](src/db/backup.cpp#L38-L39), [41](src/db/backup.cpp#L41), [152–153](src/db/backup.cpp#L152-L153), [232](src/db/backup.cpp#L232), [248](src/db/backup.cpp#L248)
+- **src/mainwindow.cpp** (4 lines): [55–57](src/mainwindow.cpp#L55-L57), [59](src/mainwindow.cpp#L59)
 - **src/widgets/categorytag.cpp** (1 lines): [30](src/widgets/categorytag.cpp#L30)
 - **src/db/migrationmanager.cpp** (3 lines): [45](src/db/migrationmanager.cpp#L45), [104](src/db/migrationmanager.cpp#L104), [221](src/db/migrationmanager.cpp#L221)
-- **src/icons.cpp** (1 lines): [107](src/icons.cpp#L107)
-- **src/systeminfo.cpp** (1 lines): [36](src/systeminfo.cpp#L36)
+- **src/systeminfo.cpp** (1 lines): [37](src/systeminfo.cpp#L37)
 - **src/dashboard.cpp** (1 lines): [18](src/dashboard.cpp#L18)
 - **src/dialog/applyrulesdialog.cpp** (1 lines): [53](src/dialog/applyrulesdialog.cpp#L53)
-- **src/dialog/balancecorrectiondialog.cpp** (1 lines): [25](src/dialog/balancecorrectiondialog.cpp#L25)
-- **src/dialog/importmanagerdialog.cpp** (6 lines): [38](src/dialog/importmanagerdialog.cpp#L38), [61](src/dialog/importmanagerdialog.cpp#L61), [746](src/dialog/importmanagerdialog.cpp#L746), [1330–1331](src/dialog/importmanagerdialog.cpp#L1330-L1331), [1341](src/dialog/importmanagerdialog.cpp#L1341)
-- **src/dialog/rawsettingsdialog.cpp** (1 lines): [22](src/dialog/rawsettingsdialog.cpp#L22)
+- **src/dialog/balancecorrectiondialog.cpp** (1 lines): [26](src/dialog/balancecorrectiondialog.cpp#L26)
+- **src/dialog/importmanagerdialog.cpp** (6 lines): [39](src/dialog/importmanagerdialog.cpp#L39), [62](src/dialog/importmanagerdialog.cpp#L62), [747](src/dialog/importmanagerdialog.cpp#L747), [1331–1332](src/dialog/importmanagerdialog.cpp#L1331-L1332), [1342](src/dialog/importmanagerdialog.cpp#L1342)
+- **src/dialog/rawsettingsdialog.cpp** (1 lines): [23](src/dialog/rawsettingsdialog.cpp#L23)
+- **src/icons.cpp** (1 lines): [166](src/icons.cpp#L166)
 - **src/report.cpp** (3 lines): [121](src/report.cpp#L121), [449–450](src/report.cpp#L449-L450)
 - **src/rule.cpp** (4 lines): [192–194](src/rule.cpp#L192-L194), [360](src/rule.cpp#L360)
 - **src/spreadsheet.cpp** (4 lines): [52](src/spreadsheet.cpp#L52), [324](src/spreadsheet.cpp#L324), [405](src/spreadsheet.cpp#L405), [473](src/spreadsheet.cpp#L473)
 - **src/theme.h** (1 lines): [498](src/theme.h#L498)
 - **src/transactionlistmodel.cpp** (1 lines): [165](src/transactionlistmodel.cpp#L165)
-- **src/widgets/aboutwidget.cpp** (1 lines): [47](src/widgets/aboutwidget.cpp#L47)
+- **src/widgets/aboutwidget.cpp** (1 lines): [48](src/widgets/aboutwidget.cpp#L48)
 - **src/widgets/accounttypessettings.cpp** (1 lines): [44](src/widgets/accounttypessettings.cpp#L44)
 - **src/widgets/budgetcharts.cpp** (2 lines): [54](src/widgets/budgetcharts.cpp#L54), [211](src/widgets/budgetcharts.cpp#L211)
-- **src/widgets/sidebarwidget.cpp** (3 lines): [320](src/widgets/sidebarwidget.cpp#L320), [559](src/widgets/sidebarwidget.cpp#L559), [586](src/widgets/sidebarwidget.cpp#L586)
+- **src/widgets/sidebarwidget.cpp** (3 lines): [353](src/widgets/sidebarwidget.cpp#L353), [613](src/widgets/sidebarwidget.cpp#L613), [640](src/widgets/sidebarwidget.cpp#L640)
 - **src/account.cpp** (1 lines): [52](src/account.cpp#L52)
 - **src/csvimport.cpp** (1 lines): [498](src/csvimport.cpp#L498)
 - **src/transaction.cpp** (1 lines): [154](src/transaction.cpp#L154)
-- **src/widgets/backupsettings.cpp** (1 lines): [120](src/widgets/backupsettings.cpp#L120)
+- **src/widgets/backupsettings.cpp** (1 lines): [121](src/widgets/backupsettings.cpp#L121)
 - **src/widgets/reportspage.cpp** (1 lines): [2260](src/widgets/reportspage.cpp#L2260)
 - **src/widgets/rulessettings.cpp** (1 lines): [365](src/widgets/rulessettings.cpp#L365)
 - **src/widgets/transactioneditor.cpp** (1 lines): [254](src/widgets/transactioneditor.cpp#L254)
@@ -313,13 +315,16 @@
 
 </details>
 
-<details><summary><b>test_branding</b> · 3 test cases · 12 files</summary>
+<details><summary><b>test_branding</b> · 6 test cases · 13 files</summary>
 
 [tests/test_branding.cpp](tests/test_branding.cpp)
 
 - Logo is built in
+- Wordmark is cropped and tinted
 - App icon has the sizes windows asks for
 - Start window and about show the logo
+- Name comes from the project
+- Translations show the name
 
 </details>
 
@@ -701,6 +706,28 @@
 
 </details>
 
+<details><summary><b>test_namemigration</b> · 15 test cases · 1 files</summary>
+
+[tests/test_namemigration.cpp](tests/test_namemigration.cpp)
+
+- Standard places are the app data folders of both names
+- Moves paths in the old folder
+- Path case follows the system
+- Nothing under the old name changes nothing
+- Without a previous name nothing is carried
+- An empty old folder is nothing to carry
+- Carries over the folder and settings
+- Carries over once
+- Leaves a new name in use alone
+- Settings without a folder
+- A folder without settings
+- An empty new folder is filled
+- Finishes an earlier start
+- Replaces a half copy
+- A failed copy changes nothing
+
+</details>
+
 <details><summary><b>test_rawsettingsdialog</b> · 5 test cases · 5 files</summary>
 
 [tests/test_rawsettingsdialog.cpp](tests/test_rawsettingsdialog.cpp)
@@ -993,7 +1020,7 @@
 
 </details>
 
-<details><summary><b>test_sidebarwidget</b> · 14 test cases · 17 files</summary>
+<details><summary><b>test_sidebarwidget</b> · 23 test cases · 17 files</summary>
 
 [tests/test_sidebarwidget.cpp](tests/test_sidebarwidget.cpp)
 
@@ -1009,7 +1036,16 @@
 - Budgets follow the chosen sort
 - Shows when there are no budgets
 - Folded sections show a summary and are remembered
-- Shows the logo and name and keeps the logo when collapsed
+- Shows the wordmark and the logo when collapsed
+- Wordmark lines up with the icons
+- Wordmark follows the theme
+- Wordmark is smaller than the logo and centred
+- Is beta before version one
+- Beta tag beside the wordmark
+- Beta tag reaches the baseline
+- Beta tag follows the theme
+- Collapsing keeps the items in place
+- Divider separates the wordmark
 - Collapsing is remembered
 
 </details>
