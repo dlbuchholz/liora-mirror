@@ -2,6 +2,7 @@
 #include <QXmlStreamReader>
 
 #include "language.h"
+#include "languagerestart.h"
 
 class TestLanguage : public QObject {
     Q_OBJECT

@@ -9,7 +9,7 @@ set(APP_ORGANIZATION LeineHive)
 
 include(CTest)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Sql Svg Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Sql Svg Test)
 # lupdate and lrelease for the translations; without them Liora is built in English only
 find_package(Qt6 QUIET OPTIONAL_COMPONENTS LinguistTools)
 
@@ -20,8 +20,8 @@ set(SRC_DIR src)
 set(UI_DIR ui)
 set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/${UI_DIR}")
 file(GLOB_RECURSE SRC_FILES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.h" "${UI_DIR}/*.ui")
-# main.cpp belongs to the program only; everything else is compiled once, into LioraLib, which
-# the program and the tests link
+# main.cpp belongs to the program only; everything else is compiled once, into LioraCore and
+# LioraLib (below), which the program and the tests link
 list(FILTER SRC_FILES EXCLUDE REGEX "/${SRC_DIR}/main\\.cpp$")
 include_directories(${SRC_DIR})
 
@@ -101,13 +101,55 @@ add_library(miniz STATIC thirdparty/miniz/miniz.c)
 target_include_directories(miniz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/miniz)
 target_compile_definitions(miniz PUBLIC MINIZ_NO_ZLIB_COMPATIBLE_NAMES MINIZ_NO_STDIO MINIZ_NO_TIME)
 
-add_library(LioraLib STATIC ${SRC_FILES})
-target_link_libraries(LioraLib PUBLIC liora_warnings)   # The app and the tests get the same warnings
-target_link_libraries(LioraLib PRIVATE miniz)
+# LioraCore: data, calculations, the database and the translations, without Qt Widgets, so another
+# interface (QML phone port) can use it. It doesn't link Qt::Widgets, so a widget include here
+# fails to build.
+set(CORE_FILES
+    account.cpp account.h
+    applocale.cpp applocale.h
+    balance.cpp balance.h
+    budget.cpp budget.h
+    category.cpp category.h
+    categorycolors.cpp categorycolors.h
+    csvimport.cpp csvimport.h
+    csvparser.cpp csvparser.h
+    dashboard.cpp dashboard.h
+    language.cpp language.h
+    money.cpp money.h
+    report.cpp report.h
+    rule.cpp rule.h
+    settings.cpp settings.h
+    spreadsheet.cpp spreadsheet.h
+    starternames.cpp starternames.h
+    themecolors.h
+    transaction.cpp transaction.h
+    transactionlistmodel.cpp transactionlistmodel.h
+    user.cpp user.h
+    db/backup.cpp db/backup.h
+    db/databasemanager.cpp db/databasemanager.h
+    db/databasesession.cpp db/databasesession.h
+    db/migrationmanager.cpp db/migrationmanager.h
+)
+list(TRANSFORM CORE_FILES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/${SRC_DIR}/")
+list(REMOVE_ITEM SRC_FILES ${CORE_FILES})
+
+add_library(LioraCore STATIC ${CORE_FILES})
+target_link_libraries(LioraCore PUBLIC liora_warnings)  # The app and the tests get the same warnings
+target_link_libraries(LioraCore PRIVATE miniz)
 # qDebug is for working on Liora. Warnings stay on in every build.
-target_compile_definitions(LioraLib PUBLIC $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>)
+target_compile_definitions(LioraCore PUBLIC $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>)
+target_include_directories(LioraCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_link_libraries(LioraCore PUBLIC
+    Qt::Core
+    Qt::Gui                                          # QColor
+    Qt::Sql
+)
+
+# LioraLib: the desktop (Widgets) interface on top of LioraCore
+add_library(LioraLib STATIC ${SRC_FILES})
 target_include_directories(LioraLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(LioraLib PUBLIC
+    LioraCore
     Qt::Core
     Qt::Widgets
     Qt::Sql
@@ -139,13 +181,13 @@ qt_add_resources(LioraLib "icons"
 # program. CONFIGURE_DEPENDS picks up new migration files.
 file(GLOB MIGRATION_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/db/migrations/*.sql")
-qt_add_resources(LioraLib "migrations"
+qt_add_resources(LioraCore "migrations"
     PREFIX "/"
     BASE "db"
     FILES ${MIGRATION_FILES}
 )
 
-# The translations (translations/liora_<code>.ts, see CONTRIBUTING.md), built into the library as
+# The translations (translations/liora_<code>.ts, see CONTRIBUTING.md), built into LioraCore as
 # :/i18n/liora_<code>.qm, with Qt's own texts for those languages (:/i18n/qtbase_<code>.qm) when
 # this Qt has them. "cmake --build <dir> --target update_translations" adds new and changed texts
 # from the code to the .ts files. APP_HAS_TRANSLATIONS tells the tests the translations are in.
@@ -173,19 +215,19 @@ if(TARGET Qt6::lrelease)
             list(APPEND QT_TRANSLATION_FILES "${qt_qm}")
         endif()
     endforeach()
-    qt_add_translations(LioraLib
+    qt_add_translations(LioraCore
         TS_FILES ${LIORA_TS_FILES}
         RESOURCE_PREFIX "/i18n"
         LUPDATE_OPTIONS -no-obsolete -locations none
     )
     if(QT_TRANSLATION_FILES)
-        qt_add_resources(LioraLib "qt_translations"
+        qt_add_resources(LioraCore "qt_translations"
             PREFIX "/i18n"
             BASE "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_TRANSLATIONS}"
             FILES ${QT_TRANSLATION_FILES}
         )
     endif()
-    target_compile_definitions(LioraLib PUBLIC APP_HAS_TRANSLATIONS)
+    target_compile_definitions(LioraCore PUBLIC APP_HAS_TRANSLATIONS)
 else()
     message(WARNING "Qt's LinguistTools weren't found: Liora is built in English only")
 endif()

@@ -7,7 +7,7 @@
 #include "widgets/reportspage.h"
 #include "widgets/settingspage.h"
 #include "widgets/transactionspage.h"
-#include "language.h"
+#include "languagerestart.h"
 #include "mainwindow.h"
 #include "settings.h"
 #include "theme.h"

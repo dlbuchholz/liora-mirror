@@ -1,5 +1,5 @@
 #include "categorycolors.h"
-#include "theme.h"
+#include "themecolors.h"
 
 #include <QCoreApplication>
 #include <QHash>
@@ -67,11 +67,11 @@ QString label(const QString& name) {
 }
 
 Swatch swatch(const QString& name) {
-    return swatch(name, Theme::isDark());
+    return swatch(name, ThemeColors::isDark());
 }
 
 Swatch swatch(const QString& name, bool dark) {
-    const Theme::Colors colors = Theme::colors(dark);
+    const ThemeColors colors = ThemeColors::forTheme(dark);
     for (const auto& ramp : ramps()) {
         if (ramp.first == name) {
             const Ramp& r = ramp.second;
