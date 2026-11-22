@@ -43,6 +43,7 @@ signals:
     void accountRequested(int accountId);            // ALL_ACCOUNTS_ID for all accounts
     void addAccountRequested();
     void correctBalanceRequested(int accountId);     // From an account's right-click menu
+    void enterBalancesRequested(int accountId);      // The same
     void editAccountRequested(int accountId);        // The same
     void deleteAccountRequested(int accountId);      // The same
     void switchUserRequested();

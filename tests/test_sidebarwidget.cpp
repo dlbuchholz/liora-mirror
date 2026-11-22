@@ -257,19 +257,22 @@ private slots:
         QCoreApplication::processEvents();
         QSignalSpy show(&sidebar, &SidebarWidget::accountRequested);
         QSignalSpy correct(&sidebar, &SidebarWidget::correctBalanceRequested);
+        QSignalSpy enter(&sidebar, &SidebarWidget::enterBalancesRequested);
         QSignalSpy edit(&sidebar, &SidebarWidget::editAccountRequested);
         QSignalSpy remove(&sidebar, &SidebarWidget::deleteAccountRequested);
         const int account = AccountDAO().getAllAccountsForUser(1).first().getAccountId();
         QAbstractButton* row = item(sidebar, AccountDAO().getAccountById(account).getName());
         QVERIFY(row);
 
-        for (const char* entry : {"Show transactions", "Correct balance…", "Edit account…", "Delete account…"}) {
+        for (const char* entry : {"Show transactions", "Correct balance…", "Enter balances…", "Edit account…", "Delete account…"}) {
             chooseFromMenu(QString::fromUtf8(entry));
             emit row->customContextMenuRequested(QPoint(2, 2));
         }
         QCOMPARE(show.count(), 1);
         QCOMPARE(show[0][0].toInt(), account);
         QCOMPARE(correct.count(), 1);
+        QCOMPARE(enter.count(), 1);
+        QCOMPARE(enter[0][0].toInt(), account);
         QCOMPARE(edit.count(), 1);
         QCOMPARE(remove.count(), 1);
         QCOMPARE(remove[0][0].toInt(), account);

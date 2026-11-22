@@ -484,6 +484,7 @@ void SidebarWidget::loadAccounts() {
             QMenu menu(this);
             menu.addAction(tr("Show transactions"), this, [this, accountId]() { emit accountRequested(accountId); });
             menu.addAction(tr("Correct balance…"), this, [this, accountId]() { emit correctBalanceRequested(accountId); });
+            menu.addAction(tr("Enter balances…"), this, [this, accountId]() { emit enterBalancesRequested(accountId); });
             menu.addSeparator();
             menu.addAction(tr("Edit account…"), this, [this, accountId]() { emit editAccountRequested(accountId); });
             menu.addAction(tr("Delete account…"), this, [this, accountId]() { emit deleteAccountRequested(accountId); });

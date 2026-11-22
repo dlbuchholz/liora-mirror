@@ -5,6 +5,7 @@
 #include "account.h"
 #include "categorycolors.h"
 #include "dialog/balancecorrectiondialog.h"
+#include "dialog/balanceentriesdialog.h"
 #include "dialog/importmanagerdialog.h"
 #include "emptystate.h"
 #include "icons.h"
@@ -339,6 +340,10 @@ TransactionsPage::TransactionsPage(QWidget* parent)
     correctBalanceAction->setToolTip(tr("Match the balance your bank shows by adding a balance correction"));
     moreButton->menu()->setToolTipsVisible(true);
     connect(correctBalanceAction, &QAction::triggered, this, [this]() { correctBalance(accountId); });
+    enterBalancesAction = moreButton->menu()->addAction(tr("Enter balances…"));
+    enterBalancesAction->setObjectName("enterBalancesAction");
+    enterBalancesAction->setToolTip(tr("Enter an account's balance on many days at once, such as a depot's value each month"));
+    connect(enterBalancesAction, &QAction::triggered, this, [this]() { enterBalances(accountId); });
     actions->addWidget(moreButton);
     auto* addButton = new QPushButton(tr("Add transaction"), headerActions);
     addButton->setObjectName("addTransactionButton");
@@ -1042,6 +1047,14 @@ void TransactionsPage::onSaveRequested(const Transaction& transaction) {
 
 void TransactionsPage::correctBalance(int forAccountId) {
     BalanceCorrectionDialog dialog(userId, forAccountId, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        reload();
+        emit transactionsChanged();
+    }
+}
+
+void TransactionsPage::enterBalances(int forAccountId) {
+    BalanceEntriesDialog dialog(userId, forAccountId, this);
     if (dialog.exec() == QDialog::Accepted) {
         reload();
         emit transactionsChanged();

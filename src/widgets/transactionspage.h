@@ -54,6 +54,7 @@ public slots:
     void addTransaction();
     void importTransactions();
     void correctBalance(int accountId);              // ALL_ACCOUNTS: the dialog lets the user pick one
+    void enterBalances(int accountId);               // Many at once; the same
 
 signals:
     void transactionsChanged();
@@ -103,6 +104,7 @@ private:
     QWidget* headerActions = nullptr;                // Import, more actions and Add transaction
     QToolButton* moreButton = nullptr;               // ⋯, with the actions needed less often
     QAction* correctBalanceAction = nullptr;
+    QAction* enterBalancesAction = nullptr;
     QLineEdit* searchEdit = nullptr;
     QAction* searchAction = nullptr;
     QWidget* filterBar = nullptr;                    // Search, period, category and type

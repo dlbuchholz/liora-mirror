@@ -893,6 +893,28 @@ private slots:
         QCOMPARE(accountShown, secondId);                    // For the account shown
     }
 
+    void enterBalancesIsUnderMoreActions() {
+        TransactionsPage page;
+        page.setUserId(1);
+        page.showAccount(secondId);
+        QAction* enter = page.findChild<QAction*>("enterBalancesAction");
+        QVERIFY(page.findChild<QToolButton*>("moreActions")->menu()->actions().contains(enter));
+        QCOMPARE(enter->text(), QString("Enter balances…"));
+        QSignalSpy changed(&page, &TransactionsPage::transactionsChanged);
+        int accountShown = -1;
+        QTimer::singleShot(0, qApp, [&accountShown]() {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            accountShown = dialog->findChild<QComboBox*>("entriesAccountCombo")->currentData().toInt();
+            dialog->reject();
+        });
+        enter->trigger();
+        QCOMPARE(accountShown, secondId);                    // For the account shown
+        QCOMPARE(changed.count(), 0);                        // Cancelled
+        QTimer::singleShot(0, qApp, []() { qobject_cast<QDialog*>(QApplication::activeModalWidget())->accept(); });
+        page.enterBalances(secondId);
+        QCOMPARE(changed.count(), 1);
+    }
+
     void importsAndNewAccountsReachThePage() {
         TransactionsPage page;
         page.setUserId(1);

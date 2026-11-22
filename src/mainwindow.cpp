@@ -33,6 +33,7 @@ MainWindow::MainWindow(int userId, QWidget *parent)
     connect(ui->sidebar, &SidebarWidget::accountRequested, this, &MainWindow::onAccountRequested);
     connect(ui->sidebar, &SidebarWidget::addAccountRequested, this, &MainWindow::onAddAccountClicked);
     connect(ui->sidebar, &SidebarWidget::correctBalanceRequested, ui->transactionsPage, &TransactionsPage::correctBalance);
+    connect(ui->sidebar, &SidebarWidget::enterBalancesRequested, ui->transactionsPage, &TransactionsPage::enterBalances);
     connect(ui->sidebar, &SidebarWidget::editAccountRequested, this, [this](int accountId) {
         EditAccountDialog dialog(this->userId, accountId, this);
         if (dialog.exec() == QDialog::Accepted) {

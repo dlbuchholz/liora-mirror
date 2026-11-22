@@ -17,6 +17,9 @@
 #include "csvimport.h"
 #include "dashboard.h"
 #include "dialog/balancecorrectiondialog.h"
+#include "dialog/balanceentriesdialog.h"
+#include <QClipboard>
+#include <QTableWidget>
 #include "dialog/importmanagerdialog.h"
 #include "fake_translator.h"
 #include <QFrame>
@@ -76,6 +79,199 @@ private slots:
         QVERIFY(up > 0);
         QCOMPARE(Balance::onDate(giro, QDate(2026, 10, 18)), Cents(3760));
         QCOMPARE(Balance::addCorrection(giro, QDate(2026, 10, 18), 0, ""), 0);   // Nothing to correct
+    }
+
+    void manyBalancesBecomeCorrectionsInDateOrder() {
+        // A depot: 100.00 in, then its value at the end of three months, entered out of order
+        add(giro, 10000, QDate(2026, 8, 1), "income");
+        add(giro, 5000, QDate(2026, 10, 15), "income");                    // Moved in: stays a deposit
+        add(giro, 999, QDate(2026, 11, 2), "expense");                      // After the last entry
+        const QList<Balance::PlannedCorrection> plan = Balance::planCorrections(giro, {
+            {QDate(2026, 9, 30), 9500}, {QDate(2026, 8, 31), 10420}, {QDate(2026, 10, 31), 16000}, {QDate(), 1}});
+        QCOMPARE(plan.size(), 3);                                           // No date, no entry
+        QCOMPARE(plan[0].date, QDate(2026, 8, 31));
+        QCOMPARE(plan[0].beforeCents, Cents(10000));
+        QCOMPARE(plan[0].correctionCents(), Cents(420));
+        QCOMPARE(plan[1].beforeCents, Cents(10420));                        // After the August one
+        QCOMPARE(plan[1].correctionCents(), Cents(-920));
+        QCOMPARE(plan[2].beforeCents, Cents(14500));                        // ...and the deposit
+        QCOMPARE(plan[2].correctionCents(), Cents(1500));
+        QVERIFY(plan[2].replacedIds.isEmpty());
+        QCOMPARE(Balance::applyCorrections(giro, plan, "Entered"), 3);
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 8, 31)), Cents(10420));
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 9, 30)), Cents(9500));
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 10, 31)), Cents(16000));
+        QCOMPARE(Balance::onDate(savings, QDate(2026, 10, 31)), Cents(0));    // Only that account
+    }
+
+    void enteringADayAgainReplacesItsCorrection() {
+        add(giro, 10000, QDate(2026, 8, 1), "income");
+        add(giro, 777, QDate(2026, 9, 30), "expense");                       // Not a correction: stays
+        QCOMPARE(Balance::applyCorrections(giro, Balance::planCorrections(giro, {{QDate(2026, 8, 31), 11000},
+                                                                                 {QDate(2026, 9, 30), 12000}}), ""), 2);
+        // September again, and August with a typo fixed
+        const QList<Balance::PlannedCorrection> again = Balance::planCorrections(giro, {
+            {QDate(2026, 8, 31), 10500}, {QDate(2026, 9, 30), 12000}});
+        QCOMPARE(again[0].replacedIds.size(), 1);
+        QCOMPARE(again[0].beforeCents, Cents(10000));                       // Without its old correction
+        QCOMPARE(again[0].correctionCents(), Cents(500));
+        QCOMPARE(again[1].replacedIds.size(), 1);
+        QCOMPARE(again[1].beforeCents, Cents(10500 - 777));                 // Without its old one, after the new August
+        QCOMPARE(again[1].correctionCents(), Cents(2277));
+        QCOMPARE(Balance::applyCorrections(giro, again, ""), 2);
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 8, 31)), Cents(10500));
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 9, 30)), Cents(12000));
+        QSqlQuery query(DatabaseManager::instance().database());
+        QVERIFY(query.exec("SELECT COUNT(*) FROM transactions") && query.next());
+        QCOMPARE(query.value(0).toInt(), 4);                                // Two corrections, not four
+
+        // A day that already matches without its old correction: the old one just goes
+        const QList<Balance::PlannedCorrection> back = Balance::planCorrections(giro, {{QDate(2026, 8, 31), 10000}});
+        QCOMPARE(back[0].correctionCents(), Cents(0));
+        QVERIFY(back[0].changesSomething());
+        QCOMPARE(Balance::applyCorrections(giro, back, ""), 0);
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 8, 31)), Cents(10000));
+        QVERIFY(!Balance::planCorrections(giro, {{QDate(2026, 8, 31), 10000}})[0].changesSomething());
+
+        // An old correction that lowered it
+        Balance::addCorrection(giro, QDate(2026, 6, 30), -400, "");
+        const QList<Balance::PlannedCorrection> down = Balance::planCorrections(giro, {{QDate(2026, 6, 30), 0}});
+        QCOMPARE(down[0].beforeCents, Cents(0));
+        QVERIFY(!down[0].correctionCents());
+
+        // The same day twice: the later one counts
+        const QList<Balance::PlannedCorrection> twice = Balance::planCorrections(giro, {
+            {QDate(2026, 7, 31), 100}, {QDate(2026, 7, 31), 300}});
+        QCOMPARE(twice.size(), 1);
+        QCOMPARE(twice[0].balanceCents, Cents(300));
+    }
+
+    void balancesPastedFromASpreadsheet() {
+        int skipped = -1;
+        const QList<Balance::Entry> entries = Balance::parseEntries(
+            "Date\tValue\n31.08.2026\t10.420,50\r\n30.09.2026\t-95,00\n\n2026-10-31;1.234,00;note\n30.11.2026 12 000,00\n"
+            "not a date\t5\n31.12.2026\n", ',', &skipped);
+        QCOMPARE(entries.size(), 4);
+        QCOMPARE(entries[0].date, QDate(2026, 8, 31));
+        QCOMPARE(entries[0].balanceCents, Cents(1042050));
+        QCOMPARE(entries[1].balanceCents, Cents(-9500));
+        QCOMPARE(entries[2].date, QDate(2026, 10, 31));
+        QCOMPARE(entries[2].balanceCents, Cents(123400));
+        QCOMPARE(entries[3].date, QDate(2026, 11, 30));
+        QCOMPARE(entries[3].balanceCents, Cents(1200000));
+        QCOMPARE(skipped, 2);                                               // Not the headings
+        QCOMPARE(Balance::parseEntries("08/31/2026\t1,234.56", '.').value(0).balanceCents, Cents(123456));
+        QCOMPARE(Balance::parseEntries("31.08.2026\t12.00\tnote; more", '.').value(0).balanceCents, Cents(1200));   // Tabs first
+        QVERIFY(Balance::parseEntries("", '.').isEmpty());
+        Balance::parseEntries("Date\tValue\nnope\t1\n", '.', &skipped);
+        QCOMPARE(skipped, 1);
+    }
+
+    void theEnterBalancesDialogShowsEachCorrection() {
+        Settings::instance().setDecimalSeparator(Settings::DecimalSeparator::Point);
+        add(giro, 10000, QDate(2026, 8, 1), "income");
+        Balance::addCorrection(giro, QDate(2026, 9, 30), 2500, "");          // Entered before: replaced
+        BalanceEntriesDialog dialog(1, giro);
+        auto* table = dialog.findChild<QTableWidget*>("entriesTable");
+        auto* status = dialog.findChild<QLabel*>("entriesStatusLabel");
+        auto* save = dialog.findChild<QPushButton*>("saveEntriesButton");
+        QCOMPARE(dialog.findChild<QComboBox*>("entriesAccountCombo")->currentData().toInt(), giro);
+        QCOMPARE(table->rowCount(), 1);                                      // Room for the first one
+        QVERIFY(!save->isEnabled());
+        QCOMPARE(status->text(), QString("Enter each day's balance as it was at the end of that day."));
+        QVERIFY(table->horizontalHeaderItem(1)->text().contains("day's end"));
+
+        // Typed: a new empty row comes after it
+        table->item(0, 0)->setText("31.08.2026");
+        QCOMPARE(table->rowCount(), 2);
+        QCOMPARE(table->item(0, 3)->text(), QString("Which balance?"));
+        QVERIFY(!save->isEnabled());
+        QCOMPARE(status->text(), QString("1 row can't be read yet."));
+        table->item(0, 1)->setText("104.20");
+        QCOMPARE(table->item(0, 2)->text(), Settings::instance().formatCurrency(10000));
+        QCOMPARE(table->item(0, 3)->text(), Settings::instance().formatCurrency(420, true));
+        QVERIFY(save->isEnabled());
+        QCOMPARE(status->text(), QString("Adds 1 correction."));
+
+        // Pasted under it, with a heading, a line that can't be read and the same day twice
+        dialog.pasteText("Date\tBalance\n30.09.2026\t99.00\nsoon\t1\n31.10.2026\t104.20\n31.10.2026\t110.00\n");
+        QCOMPARE(table->rowCount(), 5);                                      // Four rows and an empty one
+        QCOMPARE(table->item(1, 0)->text(), QString("30.09.2026"));
+        QCOMPARE(table->item(1, 1)->text(), QString("99.00"));
+        QCOMPARE(table->item(1, 2)->text(), Settings::instance().formatCurrency(10420));   // Without its old correction
+        QCOMPARE(table->item(1, 3)->text(), Settings::instance().formatCurrency(-520, true));
+        QCOMPARE(table->item(1, 3)->toolTip(), QString("Replaces the correction already on this day"));
+        QCOMPARE(table->item(2, 3)->text(), QString("Same day below"));
+        QCOMPARE(table->item(3, 3)->text(), Settings::instance().formatCurrency(1100, true));
+        QVERIFY(table->item(4, 0)->text().isEmpty());
+        QVERIFY2(status->text() == "Adds 3 corrections. Replaces 1 correction already there. 1 pasted line couldn't be read and was left out.",
+                 qPrintable(status->text()));
+
+        // A day that can't be read stops the saving until it's fixed
+        table->item(4, 0)->setText("32.13.2026");
+        QCOMPARE(table->item(4, 3)->text(), QString("Which day?"));
+        QVERIFY(!save->isEnabled());
+        table->item(4, 0)->setText("");
+        QVERIFY(save->isEnabled());
+        QVERIFY(!status->text().contains("pasted"));                         // Typing again: that was then
+
+        save->click();
+        QCOMPARE(dialog.result(), int(QDialog::Accepted));
+        QCOMPARE(dialog.addedCount(), 3);
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 8, 31)), Cents(10420));
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 9, 30)), Cents(9900));
+        QCOMPARE(Balance::onDate(giro, QDate(2026, 10, 31)), Cents(11000));
+        QCOMPARE(categoryOf(Balance::planCorrections(giro, {{QDate(2026, 9, 30), 9900}})[0].replacedIds.value(0)),
+                 QString("Balance correction"));
+    }
+
+    void theEnterBalancesDialogSaysWhenNothingChanges() {
+        Settings::instance().setDecimalSeparator(Settings::DecimalSeparator::Comma);
+        add(savings, 50000, QDate(2026, 8, 1), "income");
+        BalanceEntriesDialog dialog(1, giro);
+        auto* combo = dialog.findChild<QComboBox*>("entriesAccountCombo");
+        auto* table = dialog.findChild<QTableWidget*>("entriesTable");
+        auto* status = dialog.findChild<QLabel*>("entriesStatusLabel");
+        auto* save = dialog.findChild<QPushButton*>("saveEntriesButton");
+        dialog.pasteText("31.08.2026\t500,00");
+        QCOMPARE(table->item(0, 1)->text(), QString("500,00"));              // In the user's own way
+        QCOMPARE(table->item(0, 3)->text(), Settings::instance().formatCurrency(50000, true));
+        combo->setCurrentIndex(combo->findData(savings));                    // Another account: worked out again
+        QCOMPARE(table->item(0, 3)->text(), QString("Matches"));
+        QVERIFY(status->text().contains("already shows these balances"));
+        QVERIFY(!save->isEnabled());
+
+        // An old correction that isn't needed any more: saving takes it away
+        Balance::addCorrection(savings, QDate(2026, 8, 31), 700, "");
+        table->item(0, 1)->setText("500");                                   // Typed again: worked out again
+        QCOMPARE(table->item(0, 3)->text(), QString("Matches"));
+        QCOMPARE(status->text(), QString("Takes away 1 correction that's no longer needed."));
+        QVERIFY(save->isEnabled());
+        save->click();
+        QCOMPARE(dialog.addedCount(), 0);
+        QCOMPARE(Balance::onDate(savings, QDate(2026, 8, 31)), Cents(50000));
+        Settings::instance().setDecimalSeparator(Settings::DecimalSeparator::Point);
+    }
+
+    void theEnterBalancesDialogPastesWithCtrlV() {
+        BalanceEntriesDialog dialog(1, savings);
+        QCOMPARE(dialog.findChild<QComboBox*>("entriesAccountCombo")->currentData().toInt(), savings);
+        auto* table = dialog.findChild<QTableWidget*>("entriesTable");
+        QApplication::clipboard()->setText("31.08.2026\t12.00\n30.09.2026\t13.00");
+        QTest::keySequence(table, QKeySequence::Paste);
+        QCOMPARE(table->rowCount(), 3);
+        QApplication::clipboard()->setText("31.10.2026\t14.00");
+        dialog.findChild<QPushButton*>("pasteEntriesButton")->click();
+        QCOMPARE(table->rowCount(), 4);
+        QCOMPARE(table->item(2, 0)->text(), QString("31.10.2026"));
+    }
+
+    void theEnterBalancesDialogNeedsAnAccount() {
+        QSqlQuery query(DatabaseManager::instance().database());
+        QVERIFY(query.exec("DELETE FROM accounts"));
+        BalanceEntriesDialog dialog(1, -1);
+        QCOMPARE(dialog.findChild<QLabel*>("entriesStatusLabel")->text(), QString("Add an account first."));
+        QVERIFY(!dialog.findChild<QPushButton*>("saveEntriesButton")->isEnabled());
     }
 
     void correctionsArentIncomeOrSpending() {
