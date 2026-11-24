@@ -54,6 +54,19 @@ private slots:
         QCOMPARE(model.indexForTransaction(3).data(TransactionListModel::CategoryRole).toString(), QString());
     }
 
+    void namesRolesForQml() {
+        TransactionListModel model;
+        const QHash<int, QByteArray> names = model.roleNames();
+        QCOMPARE(names.value(TransactionListModel::PayeeRole), QByteArray("payee"));
+        QCOMPARE(names.value(TransactionListModel::SignedAmountRole), QByteArray("signedAmount"));
+        QCOMPARE(names.value(TransactionListModel::CategoryColorRole), QByteArray("categoryColor"));
+        QCOMPARE(names.value(Qt::DisplayRole), QByteArray("display"));   // Qt's own names stay
+
+        QSet<QByteArray> unique;                     // QML can't tell two roles with one name apart
+        for (const QByteArray& name : names) unique.insert(name);
+        QCOMPARE(unique.size(), names.size());
+    }
+
     void totalsFollowFilter() {
         TransactionListModel model;
         load(model);

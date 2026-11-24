@@ -128,6 +128,25 @@ QVariant TransactionListModel::data(const QModelIndex& index, int role) const {
     }
 }
 
+QHash<int, QByteArray> TransactionListModel::roleNames() const {
+    QHash<int, QByteArray> names = QAbstractListModel::roleNames();
+    names.insert({
+        {KindRole, "kind"},
+        {DateRole, "date"},
+        {TransactionIdRole, "transactionId"},
+        {PayeeRole, "payee"},
+        {DescriptionRole, "description"},
+        {CategoryRole, "category"},
+        {AccountRole, "account"},
+        {SignedAmountRole, "signedAmount"},
+        {CollapsedRole, "collapsed"},
+        {DayCountRole, "dayCount"},
+        {DayNetRole, "dayNet"},
+        {CategoryColorRole, "categoryColor"},
+    });
+    return names;
+}
+
 Qt::ItemFlags TransactionListModel::flags(const QModelIndex& index) const {
     if (!index.isValid()) {
         return Qt::NoItemFlags;
