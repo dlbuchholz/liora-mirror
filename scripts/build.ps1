@@ -18,6 +18,7 @@
   .\scripts\build.ps1 clean build          # wipe build-vs, configure and build from scratch
   .\scripts\build.ps1 configure            # re-run CMake (new source files, git hash for the About page)
   .\scripts\build.ps1 run -Config Release  # any action, other configuration
+  .\scripts\build.ps1 run -Phone           # with LioraPhone, the phone interface, and start that
 #>
 [CmdletBinding()]
 param(
@@ -32,7 +33,11 @@ param(
     [string] $QtDir = $env:LIORA_QT_DIR,
 
     # How many files to compile and tests to run at once
-    [int] $Jobs = [Environment]::ProcessorCount
+    [int] $Jobs = [Environment]::ProcessorCount,
+
+    # Also build LioraPhone, the QML phone interface (CMake option LIORA_PHONE, see phone/README.md),
+    # and start it instead of Liora. Turns the option on in build-vs, where it stays on.
+    [switch] $Phone
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,10 +93,14 @@ try {
         Remove-Item -Recurse -Force $BuildDir
     }
 
-    # The first time CMake picks the newest Visual Studio; later it keeps the folder's generator
-    if ($Actions -contains 'configure' -or ($needsBuild -and -not (Test-Path $Cache))) {
+    # The first time CMake picks the newest Visual Studio; later it keeps the folder's generator.
+    # -Phone configures again while the folder doesn't build LioraPhone yet.
+    $phoneMissing = $Phone -and -not ((Test-Path $Cache) -and (Select-String -Path $Cache -Pattern '^LIORA_PHONE:BOOL=ON$' -Quiet))
+    if ($Actions -contains 'configure' -or ($needsBuild -and (-not (Test-Path $Cache) -or $phoneMissing))) {
         $prefix = $QtDir.Replace('\', '/')
-        Invoke-Step "Configure ($QtDir)" { cmake -S $Repo -B $BuildDir -A x64 "-DCMAKE_PREFIX_PATH=$prefix" }
+        $options = @("-DCMAKE_PREFIX_PATH=$prefix")
+        if ($Phone) { $options += '-DLIORA_PHONE=ON' }
+        Invoke-Step "Configure ($QtDir)" { cmake -S $Repo -B $BuildDir -A x64 @options }
     }
 
     if ($needsBuild) {
@@ -113,7 +122,7 @@ try {
     Write-Host "==> Done in $(Format-Duration $total.Elapsed)" -ForegroundColor Green
 
     if ($Actions -contains 'run') {
-        $exe = Join-Path $BuildDir "$Config\Liora.exe"
+        $exe = Join-Path $BuildDir "$Config\$(if ($Phone) { 'LioraPhone' } else { 'Liora' }).exe"
         Write-Host "==> Starting $exe" -ForegroundColor Cyan
         & $exe
     }

@@ -232,6 +232,13 @@ else()
     message(WARNING "Qt's LinguistTools weren't found: Liora is built in English only")
 endif()
 
+# LIORA_PHONE builds LioraPhone, a QML port of a phone interface on LioraCore. It runs on the
+# desktop on a phone sized window and on iOS.
+option(LIORA_PHONE "Build the phone (QML) prototype" OFF)
+if(LIORA_PHONE)
+    add_subdirectory(phone)
+endif()
+
 qt_add_executable(Liora
     WIN32 MACOSX_BUNDLE
     ${SRC_DIR}/main.cpp
